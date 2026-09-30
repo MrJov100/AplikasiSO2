@@ -41,12 +41,26 @@ KE_KOLOM_DB = {
 }
 
 
+class PenolakanAPI(RuntimeError):
+    """Open-Meteo menolak permintaannya sendiri — bukan galat sesaat.
+
+    Open-Meteo mengembalikan penolakan parameter sebagai badan JSON
+    {"error": true, "reason": ...}, BUKAN sebagai status 4xx. Sebelum
+    1 Oktober 2026 penolakan itu dilempar sebagai RuntimeError biasa sehingga
+    tertangkap cabang pengulangan: satu permintaan yang pasti ditolak tetap
+    dicoba tiga kali dengan jeda menggandakan, memboroskan ±9 detik per sel dan
+    menyembunyikan sebab aslinya di balik "Gagal setelah 3 percobaan".
+    Kelas sendiri membuatnya lolos tanpa diulang, seperti niat docstring.
+    """
+
+
 def _minta(url, params):
     """Kirim permintaan dengan percobaan ulang dan jeda yang menggandakan diri.
 
-    Satu kegagalan sesaat tidak boleh menghapus prediksi satu jam. Galat 4xx
-    tidak diulang karena permintaannya memang salah; hanya galat jaringan dan
-    5xx yang diulang.
+    Satu kegagalan sesaat tidak boleh menghapus prediksi satu jam. Yang diulang
+    hanya galat jaringan dan 5xx. Galat 4xx dan penolakan parameter dari
+    Open-Meteo tidak diulang karena permintaannya memang salah, dan mengulangnya
+    hanya menunda kabar buruk.
     """
     jeda = JEDA_AWAL
     galat_terakhir = None
@@ -59,11 +73,13 @@ def _minta(url, params):
                 r.raise_for_status()
                 raise RuntimeError(f"Tanggapan dari {url} bukan JSON")
             if isinstance(isi, dict) and isi.get("error"):
-                raise RuntimeError(f"Open-Meteo menolak: {isi.get('reason')}")
+                raise PenolakanAPI(f"Open-Meteo menolak: {isi.get('reason')}")
             if 400 <= r.status_code < 500:
                 r.raise_for_status()
             r.raise_for_status()
             return isi
+        except PenolakanAPI:
+            raise                       # penolakan tetap: jangan diulang
         except requests.HTTPError as e:
             if e.response is not None and 400 <= e.response.status_code < 500:
                 raise
@@ -103,11 +119,31 @@ def tarik_sel(lintang, bujur, elevasi, hari_mundur=HARI_MUNDUR, batas_waktu=None
         "so2": pd.to_numeric(isi["hourly"]["sulphur_dioxide"], errors="coerce"),
     }).dropna(subset=["so2"])
 
+    # TANGGAL AKHIR TIDAK BOLEH DIAMBIL DARI TANGGAL JAKARTA.
+    #
+    # Arsip Open-Meteo membuka tanggal baru mengikuti UTC, sedangkan Jakarta
+    # (UTC+7) sudah berganti tanggal tujuh jam lebih awal. Antara pukul 00.00
+    # dan 07.00 WIB, tanggal Jakarta karena itu selalu SATU HARI di depan batas
+    # yang diizinkan arsip, dan seluruh permintaan ditolak dengan
+    # "Parameter 'end_date' is out of allowed range from 1940-01-01 to ...".
+    #
+    # Ditemukan 1 Oktober 2026 pukul 00.10 WIB: kesepuluh sel gagal serentak
+    # pada siklus pertama sesudah tengah malam. Sebelumnya tidak pernah
+    # terlihat karena penjadwal belum pernah menyala melewati tengah malam.
+    #
+    # Pemangkasan ke tanggal UTC aman dan tidak menghilangkan apa pun: pada
+    # jam-jam itu arsip memang belum memuat satu pun jam Jakarta hari baru.
+    # Akibatnya jam terakhir yang lengkap tertinggal, dan penjaga kemutakhiran
+    # pada tentukan_waktu_target akan menolak membentuk prediksi — penolakan
+    # yang benar, jauh lebih baik daripada prediksi atas data yang tidak ada.
     hari_ini = pd.Timestamp.now(tz=ZONA).normalize().tz_localize(None)
+    batas_arsip = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
+    akhir = min(hari_ini, batas_arsip)
+
     isi = _minta(API_METEO, {
         "latitude": lintang, "longitude": bujur, "elevation": elevasi,
-        "start_date": (hari_ini - timedelta(days=hari_mundur)).strftime("%Y-%m-%d"),
-        "end_date": hari_ini.strftime("%Y-%m-%d"),
+        "start_date": (akhir - timedelta(days=hari_mundur)).strftime("%Y-%m-%d"),
+        "end_date": akhir.strftime("%Y-%m-%d"),
         "hourly": ",".join(VAR_METEO), "models": MODEL_METEO,
         "timezone": ZONA, **SATUAN})
     meteo = pd.DataFrame({"time": pd.to_datetime(isi["hourly"]["time"])})
