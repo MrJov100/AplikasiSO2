@@ -1,0 +1,338 @@
+import { Fragment, useEffect, useState } from 'react'
+import { panggil, angka, jam } from '../api.js'
+import { Memuat, Galat } from '../komponen/Umum.jsx'
+
+const KOLOM_BOLEH = [
+  ['so2', 'SO₂ (µg/m³)'], ['suhu', 'Suhu (°C)'], ['kelembapan', 'Kelembapan (%)'],
+  ['titik_embun', 'Titik embun (°C)'], ['curah_hujan', 'Curah hujan (mm)'],
+  ['tekanan_permukaan', 'Tekanan (hPa)'], ['tutupan_awan', 'Tutupan awan (%)'],
+  ['kecepatan_angin', 'Kecepatan angin (m/s)'], ['arah_angin', 'Arah angin (°)'],
+]
+
+const TAB = [
+  ['status', 'Status per sel'],
+  ['anomali', 'Pengamatan ditandai'],
+  ['koreksi', 'Jejak koreksi'],
+  ['siklus', 'Riwayat sinkronisasi'],
+]
+
+/** Panel tindakan admin atas satu pengamatan.
+ *
+ * Tidak memakai window.confirm: dialog peramban memblokir seluruh halaman, dan
+ * alasan koreksi memang harus ditulis, bukan sekadar diklik "ya".
+ */
+function PanelKoreksi({ baris, selesai, batal }) {
+  const [tindakan, setTindakan] = useState(
+    baris.status === 'dikecualikan' ? 'pulihkan' : 'kecualikan')
+  const [alasan, setAlasan] = useState('')
+  const [kolom, setKolom] = useState('so2')
+  const [nilaiBaru, setNilaiBaru] = useState('')
+  const [galat, setGalat] = useState(null)
+  const [sedang, setSedang] = useState(false)
+
+  async function kirim() {
+    setGalat(null); setSedang(true)
+    try {
+      const isi = { id_pengamatan: baris.id_pengamatan, tindakan, alasan }
+      if (tindakan === 'ubah_nilai') {
+        isi.kolom_diubah = kolom
+        isi.nilai_baru = Number(nilaiBaru)
+      }
+      await panggil('/api/monitoring/koreksi',
+                    { method: 'POST', body: JSON.stringify(isi) })
+      selesai()
+    } catch (e) {
+      setGalat(e.message); setSedang(false)
+    }
+  }
+
+  const siap = alasan.trim().length >= 5 &&
+    (tindakan !== 'ubah_nilai' || nilaiBaru !== '')
+
+  return (
+    <tr>
+      <td colSpan={7} style={{ background: 'var(--abu-muda)' }}>
+        <div style={{ maxWidth: 560 }}>
+          <h3>Koreksi pengamatan #{baris.id_pengamatan}</h3>
+          <p className="kecil">
+            {baris.kode_sel} · {jam(baris.waktu)} · SO₂ {angka(baris.so2)} µg/m³ ·
+            status sekarang <b>{baris.status}</b>
+          </p>
+
+          <label className="medan">
+            <span>Tindakan</span>
+            <select value={tindakan} onChange={(e) => setTindakan(e.target.value)}>
+              <option value="kecualikan">Kecualikan — tidak dipakai sebagai masukan model</option>
+              <option value="pulihkan">Pulihkan — kembalikan ke status sah</option>
+              <option value="ubah_nilai">Ubah nilai — perbaiki satu kolom</option>
+              <option value="tandai_anomali">Tandai anomali — tandai untuk ditinjau</option>
+            </select>
+          </label>
+
+          {tindakan === 'ubah_nilai' && (
+            <>
+              <label className="medan">
+                <span>Kolom</span>
+                <select value={kolom} onChange={(e) => setKolom(e.target.value)}>
+                  {KOLOM_BOLEH.map(([k, n]) => <option key={k} value={k}>{n}</option>)}
+                </select>
+              </label>
+              <label className="medan">
+                <span>Nilai baru (nilai sekarang {angka(baris[kolom])})</span>
+                <input type="number" step="any" value={nilaiBaru}
+                       onChange={(e) => setNilaiBaru(e.target.value)} />
+              </label>
+            </>
+          )}
+
+          <label className="medan">
+            <span>Alasan (wajib, tersimpan sebagai jejak audit)</span>
+            <input value={alasan} onChange={(e) => setAlasan(e.target.value)}
+                   placeholder="misalnya: lonjakan sesaat, tidak sejalan jam sekitarnya" />
+          </label>
+
+          <div className="catatan info" style={{ marginBottom: '.75rem' }}>
+            {tindakan === 'kecualikan' &&
+              'Barisnya tidak dihapus, hanya ditandai. Bila jam ini dibutuhkan sebagai lag t−1..t−3, prediksi jam tersebut akan ditolak dengan pesan jelas, bukan diam-diam memakai jam lain.'}
+            {tindakan === 'ubah_nilai' &&
+              'Baris yang pernah dikoreksi begini dilindungi: sinkronisasi berikutnya tidak akan menimpanya kembali dengan nilai dari sumber.'}
+            {tindakan === 'pulihkan' &&
+              'Status kembali menjadi sah dan barisnya kembali dipakai membentuk lag.'}
+            {tindakan === 'tandai_anomali' &&
+              'Status anomali berarti menunggu ditinjau. Baris anomali tetap dipakai membentuk lag — hanya keputusan manusia (kecualikan) yang memblokirnya.'}
+          </div>
+
+          {galat && <Galat pesan={galat} />}
+
+          <div className="baris-kendali">
+            <button className="utama" disabled={!siap || sedang} onClick={kirim}>
+              {sedang ? 'Menyimpan…' : 'Simpan koreksi'}
+            </button>
+            <button onClick={batal}>Batal</button>
+          </div>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+export default function Monitoring() {
+  const [tab, setTab] = useState('status')
+  const [data, setData] = useState(null)
+  const [galat, setGalat] = useState(null)
+  const [pilih, setPilih] = useState(null)
+  const [sinkron, setSinkron] = useState(null)
+  const [muatUlang, setMuatUlang] = useState(0)
+
+  const JALUR = {
+    status: '/api/monitoring/status',
+    anomali: '/api/monitoring/anomali?batas=300',
+    koreksi: '/api/monitoring/koreksi?batas=200',
+    siklus: '/api/monitoring/siklus?batas=50',
+  }
+
+  useEffect(() => {
+    setData(null); setGalat(null); setPilih(null)
+    panggil(JALUR[tab]).then(setData).catch((e) => setGalat(e.message))
+  }, [tab, muatUlang])
+
+  async function sinkronisasiManual() {
+    setSinkron({ sedang: true })
+    try {
+      const h = await panggil('/api/monitoring/sinkronisasi', { method: 'POST' })
+      setSinkron({ hasil: h })
+      setMuatUlang((n) => n + 1)
+    } catch (e) {
+      setSinkron({ galat: e.message })
+    }
+  }
+
+  return (
+    <>
+      <div className="kepala">
+        <h1>Monitoring Data</h1>
+        <p>
+          Kemutakhiran data tiap sel, pengamatan yang ditandai validator, dan
+          jejak setiap koreksi admin.
+        </p>
+      </div>
+
+      <div className="baris-kendali">
+        {TAB.map(([k, n]) => (
+          <button key={k} className={tab === k ? 'utama' : ''} onClick={() => setTab(k)}>
+            {n}
+          </button>
+        ))}
+        <span style={{ flex: 1 }} />
+        <button onClick={sinkronisasiManual} disabled={sinkron?.sedang}>
+          {sinkron?.sedang ? 'Menyinkronkan…' : 'Sinkronisasi sekarang'}
+        </button>
+      </div>
+
+      {sinkron?.galat && <Galat pesan={sinkron.galat} />}
+      {sinkron?.hasil && (
+        <div className="catatan info" style={{ marginBottom: '1rem' }}>
+          Sinkronisasi manual selesai — {sinkron.hasil.berhasil ?? '?'} sel berhasil,{' '}
+          {sinkron.hasil.gagal ?? '?'} gagal.
+        </div>
+      )}
+
+      {galat && <Galat pesan={galat} />}
+      {!data && !galat && <Memuat />}
+
+      {data && tab === 'status' && (
+        <div className="kartu">
+          <table>
+            <thead>
+              <tr>
+                <th>Sel</th><th>Nama</th><th>Data terakhir</th>
+                <th className="angka">Tertinggal</th><th>Mutakhir</th>
+                <th className="angka">Pengamatan</th><th className="angka">Ditandai</th>
+                <th>Sinkronisasi terakhir</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((b) => (
+                <tr key={b.kode_sel}>
+                  <td><b>{b.kode_sel}</b></td>
+                  <td>{b.nama}</td>
+                  <td>{jam(b.waktu_data_terakhir)}</td>
+                  <td className="angka">
+                    {b.tertinggal_jam === null ? '—' : `${b.tertinggal_jam} jam`}
+                  </td>
+                  <td>
+                    <span className={`lencana ${b.mutakhir ? 'baik' : 'sedang'}`}>
+                      {b.mutakhir ? 'ya' : 'tidak'}
+                    </span>
+                  </td>
+                  <td className="angka">{b.jumlah_pengamatan}</td>
+                  <td className="angka">{b.jumlah_anomali}</td>
+                  <td>{jam(b.sinkronisasi_terakhir)}</td>
+                  <td className="kecil">
+                    {b.status_sinkronisasi || '—'}
+                    {b.pesan_galat && <div style={{ color: 'var(--sangat-buruk)' }}>{b.pesan_galat}</div>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {data && tab === 'anomali' && (
+        <div className="kartu">
+          <p className="kecil">
+            {data.length} pengamatan berstatus bukan <i>sah</i>. Status{' '}
+            <i>anomali</i> berarti menunggu ditinjau dan <b>tetap</b> dipakai
+            membentuk lag; hanya <i>dikecualikan</i> yang memblokirnya.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Sel</th><th>Waktu</th><th className="angka">SO₂</th>
+                <th>Status</th><th>Alasan validator</th><th className="angka">Angin</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((b) => (
+                <Fragment key={b.id_pengamatan}>
+                  <tr>
+                    <td>{b.kode_sel}</td>
+                    <td>{jam(b.waktu)}</td>
+                    <td className="angka">{angka(b.so2)}</td>
+                    <td>
+                      <span className={`lencana ${b.status === 'dikecualikan' ? 'abu' : 'sedang'}`}>
+                        {b.status}
+                      </span>
+                    </td>
+                    <td className="kecil">{b.alasan_anomali || '—'}</td>
+                    <td className="angka">{angka(b.kecepatan_angin, 1)}</td>
+                    <td>
+                      <button className="kecil"
+                              onClick={() => setPilih(pilih === b.id_pengamatan ? null : b.id_pengamatan)}>
+                        {pilih === b.id_pengamatan ? 'Tutup' : 'Tinjau'}
+                      </button>
+                    </td>
+                  </tr>
+                  {pilih === b.id_pengamatan && (
+                    <PanelKoreksi
+                      baris={b}
+                      batal={() => setPilih(null)}
+                      selesai={() => { setPilih(null); setMuatUlang((n) => n + 1) }} />
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+          {data.length === 0 && (
+            <p className="kecil">Tidak ada pengamatan yang ditandai.</p>
+          )}
+        </div>
+      )}
+
+      {data && tab === 'koreksi' && (
+        <div className="kartu">
+          <p className="kecil">
+            {data.length} koreksi tercatat. Barisnya tidak pernah dihapus — inilah
+            jejak audit tabel KOREKSI_PENGAMATAN.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Waktu koreksi</th><th>Admin</th><th>Sel</th><th>Jam pengamatan</th>
+                <th>Tindakan</th><th>Kolom</th><th className="angka">Lama</th>
+                <th className="angka">Baru</th><th>Alasan</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((k) => (
+                <tr key={k.id_koreksi}>
+                  <td>{jam(k.waktu_koreksi)}</td>
+                  <td>{k.nama_lengkap}</td>
+                  <td>{k.kode_sel}</td>
+                  <td>{jam(k.waktu_pengamatan)}</td>
+                  <td>{k.tindakan}</td>
+                  <td className="kecil">{k.kolom_diubah || '—'}</td>
+                  <td className="angka">{angka(k.nilai_lama)}</td>
+                  <td className="angka">{angka(k.nilai_baru)}</td>
+                  <td className="kecil">{k.alasan}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {data.length === 0 && <p className="kecil">Belum ada koreksi.</p>}
+        </div>
+      )}
+
+      {data && tab === 'siklus' && (
+        <div className="kartu">
+          <table>
+            <thead>
+              <tr>
+                <th>Mulai</th><th>Selesai</th><th>Pemicu</th><th>Status</th>
+                <th className="angka">Berhasil</th><th className="angka">Gagal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((s) => (
+                <tr key={s.id_siklus}>
+                  <td>{jam(s.waktu_mulai)}</td>
+                  <td>{jam(s.waktu_selesai)}</td>
+                  <td>{s.pemicu}</td>
+                  <td>
+                    <span className={`lencana ${s.jumlah_gagal > 0 ? 'buruk' : 'baik'}`}>
+                      {s.status}
+                    </span>
+                  </td>
+                  <td className="angka">{s.jumlah_berhasil}</td>
+                  <td className="angka">{s.jumlah_gagal}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {data.length === 0 && <p className="kecil">Belum ada siklus tercatat.</p>}
+        </div>
+      )}
+    </>
+  )
+}

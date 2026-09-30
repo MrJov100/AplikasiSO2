@@ -1,0 +1,122 @@
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { panggil, angka, jam, tanggalPanjang } from '../api.js'
+import { Lencana, Memuat, Galat, Kemutakhiran } from '../komponen/Umum.jsx'
+
+export default function Prediksi({ admin }) {
+  const { kodeSel } = useParams()
+  const navigasi = useNavigate()
+  const [lokasi, setLokasi] = useState([])
+  const [dipilih, setDipilih] = useState(kodeSel || 'G04')
+  const [data, setData] = useState(null)
+  const [galat, setGalat] = useState(null)
+
+  useEffect(() => {
+    panggil('/api/informasi/lokasi').then(setLokasi).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    setData(null); setGalat(null)
+    panggil(`/api/prediksi/terkini/${dipilih}`).then(setData).catch((e) => setGalat(e.message))
+  }, [dipilih])
+
+  function pilih(kode) {
+    setDipilih(kode)
+    navigasi(`/prediksi/${kode}`, { replace: true })
+  }
+
+  const info = lokasi.find((l) => l.kode_sel === dipilih)
+  const p = data?.prediksi
+
+  return (
+    <>
+      <div className="kepala">
+        <h1>Prediksi SO₂</h1>
+        <p>Pilih sel grid untuk melihat prakiraan satu jam ke depan.</p>
+      </div>
+
+      <div className="baris-kendali">
+        <select value={dipilih} onChange={(e) => pilih(e.target.value)}>
+          {lokasi.map((l) => (
+            <option key={l.kode_sel} value={l.kode_sel}>
+              {admin ? `${l.kode_sel} — ${l.nama}` : l.nama}
+            </option>
+          ))}
+        </select>
+        <button onClick={() => navigasi(`/visualisasi/${dipilih}`)}>
+          Lihat grafik riwayat
+        </button>
+      </div>
+
+      {galat && <Galat pesan={galat} />}
+      {!data && !galat && <Memuat />}
+
+      {data && (
+        <>
+          <Kemutakhiran data={data.kemutakhiran} />
+
+          {!p && (
+            <div className="catatan ingat" style={{ marginTop: '1rem' }}>
+              Belum ada prediksi tersimpan untuk sel ini.
+            </div>
+          )}
+
+          {p && (
+            <div className="kartu" style={{ marginTop: '1rem' }}>
+              <div className="kecil">{admin ? `${p.kode_sel} · ${p.nama_lokasi}` : p.nama_lokasi}</div>
+              <h3 style={{ marginTop: '.2rem' }}>
+                Prakiraan untuk {tanggalPanjang(p.waktu_prediksi)} pukul{' '}
+                {jam(p.waktu_prediksi, false)} WIB
+              </h3>
+
+              <div className="sorot" style={{ margin: '1rem 0' }}>
+                <span className="angka">{angka(p.nilai_so2, 1)}</span>
+                <span className="satuan" style={{ fontSize: '1rem' }}>µg/m³</span>
+                <Lencana kategori={p.kategori} />
+              </div>
+
+              <div className={p.melampaui_baku_mutu ? 'catatan ingat' : 'catatan info'}>
+                {p.melampaui_baku_mutu
+                  ? <>Melampaui baku mutu satu jam (150 µg/m³), yaitu {angka(p.rasio_baku_mutu * 100, 0)}% dari baku mutu.</>
+                  : <>Memenuhi baku mutu satu jam (150 µg/m³), yaitu {angka(p.rasio_baku_mutu * 100, 0)}% dari baku mutu.</>}
+              </div>
+
+              <h3 style={{ marginTop: '1.4rem' }}>Rincian</h3>
+              <table>
+                <tbody>
+                  <tr><td>Pengamatan terakhir (SO₂)</td>
+                      <td className="angka">{angka(data.so2_terakhir, 1)} µg/m³</td></tr>
+                  <tr><td>Jam dasar prediksi</td>
+                      <td className="angka">{jam(p.waktu_dasar)}</td></tr>
+                  <tr><td>Keluaran XGBoost</td>
+                      <td className="angka">{angka(p.nilai_xgboost)} µg/m³</td></tr>
+                  <tr><td>Keluaran Random Forest</td>
+                      <td className="angka">{angka(p.nilai_random_forest)} µg/m³</td></tr>
+                  <tr><td><b>Keluaran stacking (ditampilkan)</b></td>
+                      <td className="angka"><b>{angka(p.nilai_so2)} µg/m³</b></td></tr>
+                  {p.nilai_aktual !== null && p.nilai_aktual !== undefined && (
+                    <>
+                      <tr><td>Nilai sebenarnya</td>
+                          <td className="angka">{angka(p.nilai_aktual)} µg/m³</td></tr>
+                      <tr><td>Selisih</td>
+                          <td className="angka">{angka(p.selisih)} µg/m³</td></tr>
+                    </>
+                  )}
+                  <tr><td>Versi model</td><td className="angka">{p.versi_model}</td></tr>
+                  <tr><td>Dibentuk pada</td><td className="angka">{jam(p.dibuat_pada)}</td></tr>
+                </tbody>
+              </table>
+
+              {info && (
+                <p className="kecil" style={{ marginTop: '1rem' }}>
+                  {info.wilayah_administratif} · {info.karakteristik} · elevasi{' '}
+                  {angka(info.elevasi, 0)} m
+                </p>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </>
+  )
+}
