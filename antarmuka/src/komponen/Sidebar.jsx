@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { hapusToken } from "../api.js";
 import ProfilAdmin from "./ProfilAdmin.jsx";
 
@@ -18,9 +18,26 @@ export default function Sidebar({ pengguna, setPengguna }) {
 
   return (
     <aside className="sisi">
+      {/* Blok merek. Lambang yang dipakai di sini versi monokrom putih:
+          sidebar berlatar --biru (#16507a) dan lambang berwarna penuh
+          bernavy, rasio kontras keduanya hanya sekitar 1,3:1 sehingga
+          lambang berwarna akan tenggelam. Versi berwarna penuh dipakai
+          pada latar terang (favicon, halaman Tentang).
+          Kata SELTERRA ditulis sebagai teks, bukan gambar wordmark, supaya
+          tetap tajam di segala ukuran, terbaca pembaca layar, dan bisa
+          diputihkan lewat CSS — berkas wordmark yang ada bernavy. */}
       <div className="judul">
-        <b>Prediksi SO₂ Jabodetabek</b>
-        <span>Satu jam ke depan · sepuluh sel grid</span>
+        <Link to="/" className="merek" aria-label="SELTERRA — ke Beranda">
+          <img
+            src="/logo-putih.png"
+            alt=""
+            aria-hidden="true"
+            className="merek-logo"
+          />
+          <span className="merek-nama">
+            <b>SEL</b>TERRA
+          </span>
+        </Link>
       </div>
 
       <nav>

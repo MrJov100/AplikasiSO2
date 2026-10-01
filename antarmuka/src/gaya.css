@@ -34,8 +34,19 @@ p { line-height: 1.6; }
   position: sticky; top: 0; height: 100vh; align-self: flex-start;
 }
 .sisi .judul { padding: 0 1.1rem 1rem; border-bottom: 1px solid rgba(255,255,255,.15); }
-.sisi .judul b { display: block; font-size: 1.02rem; line-height: 1.3; }
-.sisi .judul span { font-size: .78rem; opacity: .75; }
+/* Blok merek sekaligus pranala ke Beranda. Selektor .sisi a di bawah
+   berlaku umum bagi menu, jadi tata letaknya ditimpa di sini. */
+.sisi a.merek {
+  display: flex; align-items: center; gap: .7rem; margin-bottom: .5rem;
+  padding: .15rem 0; border-left: 0; color: #fff; border-radius: 6px;
+}
+.sisi a.merek:hover { background: none; opacity: .85; }
+.sisi a.merek:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.merek-logo { width: 48px; height: 48px; flex: 0 0 48px; object-fit: contain; display: block; }
+.merek-nama {
+  font-size: 1.55rem; line-height: 1; letter-spacing: .055em; font-weight: 400;
+}
+.merek-nama b { font-weight: 700; }
 .sisi nav { padding: .75rem 0; flex: 1; overflow-y: auto; min-height: 0; }
 .sisi .kelompok {
   padding: .9rem 1.1rem .35rem; font-size: .7rem; letter-spacing: .08em;
