@@ -47,9 +47,37 @@ def masuk(permintaan: skema.PermintaanMasuk, s=Depends(sambungan)):
             "nama_lengkap": p["nama_lengkap"], "peran": p["peran"]}
 
 
-@autentikasi.get("/saya")
-def saya(pengguna=admin):
-    return pengguna
+@autentikasi.get("/saya", response_model=skema.ProfilPengguna)
+def saya(s=Depends(sambungan), pengguna=admin):
+    """Rincian profil admin yang sedang masuk, untuk pop-up Profil Admin."""
+    try:
+        return l_auth.profil(s, pengguna["id_pengguna"])
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+
+@autentikasi.patch("/profil", response_model=skema.ProfilPengguna)
+def ubah_profil(permintaan: skema.PermintaanUbahNama,
+                s=Depends(sambungan), pengguna=admin):
+    """Admin mengganti nama lengkapnya sendiri."""
+    try:
+        return l_auth.ubah_nama(s, pengguna["id_pengguna"],
+                                permintaan.nama_lengkap)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@autentikasi.patch("/kata-sandi")
+def ubah_kata_sandi(permintaan: skema.PermintaanUbahKataSandi,
+                    s=Depends(sambungan), pengguna=admin):
+    """Admin mengganti kata sandinya sendiri; kata sandi lama wajib benar."""
+    try:
+        l_auth.ubah_kata_sandi(s, pengguna["id_pengguna"],
+                               permintaan.kata_sandi_lama,
+                               permintaan.kata_sandi_baru)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"pesan": "Kata sandi berhasil diganti."}
 
 
 # =============================================================== ControllerPrediksi

@@ -115,6 +115,26 @@ class Token(BaseModel):
     peran: str
 
 
+class ProfilPengguna(BaseModel):
+    """Rincian profil admin — dipakai pop-up Profil Admin pada sidebar."""
+    id_pengguna: int
+    username: str
+    nama_lengkap: str
+    peran: str
+    aktif: bool
+    terakhir_masuk: Optional[datetime] = None
+    dibuat_pada: datetime
+
+
+class PermintaanUbahNama(BaseModel):
+    nama_lengkap: str
+
+
+class PermintaanUbahKataSandi(BaseModel):
+    kata_sandi_lama: str
+    kata_sandi_baru: str
+
+
 class PermintaanKoreksi(BaseModel):
     id_pengamatan: int
     tindakan: str                      # tandai_anomali|kecualikan|pulihkan|ubah_nilai

@@ -109,10 +109,17 @@ def proses_sel(sambungan, kode_sel, id_siklus, simpan, batas_waktu=None):
 
 
 def jalankan_siklus(sambungan, daftar=None, simpan=True, batas=None,
-                    pemicu="penjadwal", id_pengguna=None, cetak=print):
+                    pemicu="penjadwal", id_pengguna=None, cetak=print,
+                    segel_status=True):
     """Satu siklus penuh untuk beberapa sel. Dipakai CLI maupun penjadwal.
 
     Tidak melakukan commit; pemanggil yang memutuskan kapan menyimpan.
+
+    segel_status=False menyisakan status siklus tetap 'berjalan', supaya
+    pemanggil yang masih punya langkah lanjutan -- penjadwal, dengan langkah
+    prediksi dan pengisian nilai aktual -- dapat menyetel status akhir sesudah
+    semuanya selesai. Tanpa itu, siklus tersegel 'berhasil' di sini dan
+    kegagalan langkah berikutnya tidak pernah terlihat di riwayat.
     """
     daftar = daftar or KODE_SEL
     id_siklus = bd.mulai_siklus(sambungan, pemicu, id_pengguna) if simpan else None
@@ -142,10 +149,16 @@ def jalankan_siklus(sambungan, daftar=None, simpan=True, batas=None,
 
     status = None
     if simpan:
-        status = bd.selesaikan_siklus(sambungan, id_siklus, berhasil, gagal)
-        cetak(f"\nSiklus {id_siklus} selesai: {status} "
-              f"({berhasil} berhasil, {gagal} gagal, {total_anomali} ditandai, "
-              f"{total_dilewati} dilindungi)")
+        if segel_status:
+            status = bd.selesaikan_siklus(sambungan, id_siklus, berhasil, gagal)
+            cetak(f"\nSiklus {id_siklus} selesai: {status} "
+                  f"({berhasil} berhasil, {gagal} gagal, {total_anomali} ditandai, "
+                  f"{total_dilewati} dilindungi)")
+        else:
+            status = bd.selesaikan_tarikan(sambungan, id_siklus, berhasil, gagal)
+            cetak(f"\nPenarikan siklus {id_siklus}: {status} "
+                  f"({berhasil} berhasil, {gagal} gagal, {total_anomali} ditandai, "
+                  f"{total_dilewati} dilindungi)")
     return {"id_siklus": id_siklus, "status": status, "berhasil": berhasil,
             "gagal": gagal, "anomali": total_anomali, "dilewati": total_dilewati}
 

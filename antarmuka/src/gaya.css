@@ -136,3 +136,126 @@ label.medan input, label.medan select { width: 100%; }
 .halaman button.aktif { background: var(--biru); border-color: var(--biru); color: #fff; font-weight: 600; cursor: default; }
 .halaman button:disabled { color: #a9b4be; background: var(--abu-muda); cursor: not-allowed; }
 .halaman .elipsis { color: var(--abu); min-width: 1.4rem; padding: 0; }
+
+/* Tombol yang tampil sebagai tautan, dipakai spanduk peringatan Monitoring
+   untuk memindahkan admin ke tab yang relevan tanpa memuat ulang halaman. */
+button.tautan {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--biru);
+  text-decoration: underline;
+  cursor: pointer;
+}
+button.tautan:hover { opacity: .8; }
+
+/* ---------- dialog pemberitahuan (Sorot) ---------- */
+.sorot-tirai {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center;
+  background: rgba(28, 40, 51, .45);
+  padding: 1rem;
+  animation: sorot-masuk .15s ease-out;
+}
+.sorot-kotak {
+  width: 100%; max-width: 380px; background: var(--putih);
+  border-radius: 10px; padding: 1.75rem 1.5rem 1.4rem;
+  text-align: center; box-shadow: 0 12px 32px rgba(28, 40, 51, .22);
+  animation: sorot-naik .18s ease-out;
+}
+.sorot-kotak h2 { font-size: 1.15rem; margin: 0 0 .4rem; }
+.sorot-kotak p { font-size: .88rem; color: var(--abu); line-height: 1.5; margin: 0 0 1.1rem; }
+.sorot-kotak button { min-width: 7rem; }
+.sorot-ikon {
+  width: 68px; height: 68px; margin: 0 auto 1rem; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 2.1rem; font-weight: 700; line-height: 1;
+}
+.sorot-ikon.memuat { border: 4px solid var(--abu-muda); }
+.sorot-ikon.berhasil { border: 4px solid var(--baik); color: var(--baik); }
+.sorot-ikon.galat { border: 4px solid var(--sangat-buruk); color: var(--sangat-buruk); }
+.sorot-putar {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 4px solid var(--garis); border-top-color: var(--biru);
+  animation: sorot-berputar .8s linear infinite;
+}
+@keyframes sorot-berputar { to { transform: rotate(360deg); } }
+@keyframes sorot-masuk { from { opacity: 0; } }
+@keyframes sorot-naik { from { transform: translateY(12px) scale(.96); } }
+@media (prefers-reduced-motion: reduce) {
+  .sorot-tirai, .sorot-kotak { animation: none; }
+  .sorot-putar { animation-duration: 2s; }
+}
+
+/* ---------- pop-up Profil Admin ---------- */
+/* Pemicu di kaki sidebar: tampil seperti baris nama biasa, tetapi tetap tombol
+   supaya bisa dicapai dengan papan tuts. */
+.sisi .kaki button.profil-pemicu {
+  display: flex; align-items: center; gap: .55rem; width: 100%;
+  margin-top: 0; padding: .4rem .45rem; text-align: left;
+  background: none; border: 1px solid transparent; border-radius: 6px;
+  color: #fff; font: inherit; font-size: .8rem; cursor: pointer;
+}
+.sisi .kaki button.profil-pemicu:hover { background: rgba(255,255,255,.1); }
+.sisi .kaki button.profil-pemicu:focus-visible {
+  outline: 2px solid #fff; outline-offset: 1px;
+}
+.profil-pemicu-teks { display: block; min-width: 0; }
+.profil-pemicu-teks .nama {
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.profil-pemicu-teks .peran {
+  display: block; font-size: .74rem; opacity: .7; text-transform: capitalize;
+}
+
+.profil-awalan {
+  flex: 0 0 auto; width: 46px; height: 46px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--biru-muda); color: var(--biru);
+  font-size: 1.25rem; font-weight: 600; line-height: 1;
+}
+.profil-awalan.kecil-awalan {
+  width: 28px; height: 28px; font-size: .85rem;
+  background: rgba(255,255,255,.18); color: #fff;
+}
+
+/* Dialog ini dipasang di dalam <aside class="sisi"> yang mewarnai teksnya
+   putih, jadi warna teks dikembalikan di sini — tanpa ini isi dialog menjadi
+   putih di atas latar putih dan tampak kosong. */
+.profil-kotak {
+  position: relative; width: 100%; max-width: 420px; background: var(--putih);
+  color: var(--teks);
+  border-radius: 10px; padding: 1.5rem 1.5rem 1.35rem;
+  box-shadow: 0 12px 32px rgba(28, 40, 51, .22);
+  animation: sorot-naik .18s ease-out;
+  max-height: calc(100vh - 2rem); overflow-y: auto;
+}
+.profil-tutup {
+  position: absolute; top: .55rem; right: .65rem;
+  width: 1.9rem; height: 1.9rem; display: grid; place-items: center;
+  background: none; border: 0; border-radius: 50%;
+  color: var(--abu); font-size: 1.35rem; line-height: 1; cursor: pointer;
+}
+.profil-tutup:hover { background: var(--abu-muda); color: var(--teks); }
+
+.profil-kepala {
+  display: flex; align-items: center; gap: .85rem;
+  padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--garis);
+}
+.profil-kepala h2 { font-size: 1.1rem; margin: 0 0 .15rem; }
+.profil-kepala p { margin: 0; }
+
+.profil-rincian { margin: 0; display: grid; gap: .7rem; }
+.profil-rincian dt { font-size: .78rem; color: var(--abu); margin-bottom: .1rem; }
+.profil-rincian dd { margin: 0; font-size: .9rem; color: var(--teks); }
+
+.profil-borang h3 { margin: 0 0 .9rem; }
+.profil-borang label.medan small { display: block; margin-top: .25rem; }
+.profil-borang .catatan { margin-bottom: .9rem; }
+
+.profil-aksi { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.1rem; }
+.profil-aksi button { padding: .45rem .9rem; }
+@media (prefers-reduced-motion: reduce) {
+  .profil-kotak { animation: none; }
+}

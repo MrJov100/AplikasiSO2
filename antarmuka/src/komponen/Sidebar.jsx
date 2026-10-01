@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { hapusToken } from "../api.js";
+import ProfilAdmin from "./ProfilAdmin.jsx";
 
 // Modul Sidebar: menu menyesuaikan peran pengguna — terbatas bagi pengunjung,
 // lengkap bagi admin (naskah Subbab 3.1).
 export default function Sidebar({ pengguna, setPengguna }) {
   const navigasi = useNavigate();
   const kelas = ({ isActive }) => (isActive ? "aktif" : "");
+  const [bukaProfil, setBukaProfil] = useState(false);
 
   function keluar() {
     hapusToken();
@@ -56,10 +59,22 @@ export default function Sidebar({ pengguna, setPengguna }) {
       <div className="kaki">
         {pengguna ? (
           <>
-            <div>{pengguna.nama_lengkap}</div>
-            <div className="kecil" style={{ opacity: 0.7 }}>
-              {pengguna.peran}
-            </div>
+            {/* Baris nama dibuat tombol supaya pop-up Profil Admin terbuka
+                dengan klik maupun dengan papan tuts. */}
+            <button
+              className="profil-pemicu"
+              onClick={() => setBukaProfil(true)}
+              aria-haspopup="dialog"
+              title="Lihat profil admin"
+            >
+              <span className="profil-awalan kecil-awalan" aria-hidden="true">
+                {(pengguna.nama_lengkap || "?").trim().charAt(0).toUpperCase()}
+              </span>
+              <span className="profil-pemicu-teks">
+                <span className="nama">{pengguna.nama_lengkap}</span>
+                <span className="peran">{pengguna.peran}</span>
+              </span>
+            </button>
             <button onClick={keluar}>Keluar</button>
           </>
         ) : (
@@ -68,6 +83,14 @@ export default function Sidebar({ pengguna, setPengguna }) {
           </NavLink>
         )}
       </div>
+
+      {bukaProfil && pengguna && (
+        <ProfilAdmin
+          pengguna={pengguna}
+          setPengguna={setPengguna}
+          tutup={() => setBukaProfil(false)}
+        />
+      )}
     </aside>
   );
 }

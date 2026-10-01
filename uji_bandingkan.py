@@ -80,17 +80,21 @@ def tabel_dari_api(kode_sel):
     }).dropna(subset=["so2"])
     so2["so2"] = so2["so2"].clip(lower=0)
 
-    hari_ini = pd.Timestamp.now(tz=ZONA).normalize().tz_localize(None)
+    # Jendela arsip dalam hari UTC, label dikonversi ke Jakarta di pandas —
+    # alasan lengkapnya ada di penarikan.tarik_sel(). Memakai tanggal Jakarta
+    # membuat berkas ini ditolak seluruhnya antara 00.00 dan 07.00 WIB.
+    akhir_utc = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
     isi = _minta(API_METEO, {
         "latitude": lat, "longitude": lon, "elevation": elev,
-        "start_date": (hari_ini - timedelta(days=HARI_MUNDUR)).strftime("%Y-%m-%d"),
-        "end_date": hari_ini.strftime("%Y-%m-%d"),
+        "start_date": (akhir_utc - timedelta(days=HARI_MUNDUR)).strftime("%Y-%m-%d"),
+        "end_date": akhir_utc.strftime("%Y-%m-%d"),
         "hourly": ",".join(VAR_METEO), "models": MODEL_METEO,
-        "timezone": ZONA, **SATUAN})
+        "timezone": "UTC", **SATUAN})
     koordinat["meteo"] = (isi.get("latitude"), isi.get("longitude"), isi.get("elevation"))
-    meteo = pd.DataFrame({"time": pd.to_datetime(isi["hourly"]["time"])})
+    meteo = pd.DataFrame({"time": pd.to_datetime(isi["hourly"]["time"], utc=True)})
     for v in VAR_METEO:
         meteo[v] = pd.to_numeric(isi["hourly"][v], errors="coerce")
+    meteo["time"] = meteo["time"].dt.tz_convert(ZONA).dt.tz_localize(None)
     meteo = meteo.dropna(subset=VAR_METEO)
 
     gabung = so2.merge(meteo, on="time", how="inner", validate="one_to_one")

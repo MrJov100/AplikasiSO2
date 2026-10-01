@@ -168,6 +168,47 @@ SET    waktu_selesai   = (now() AT TIME ZONE 'Asia/Jakarta'),
 WHERE  id_siklus = %(id_siklus)s
 """
 
+# Langkah 1 selesai BUKAN berarti siklus selesai.
+#
+# Sampai 1 Oktober 2026 hanya ada SQL_SELESAI_SIKLUS, dan langkah 1 memanggilnya
+# dengan status 'berhasil' lalu commit. Dua langkah sesudahnya -- prediksi dan
+# pengisian nilai aktual -- tidak pernah menyentuh baris itu lagi. Akibatnya
+# siklus yang kehilangan kesepuluh prediksinya tetap tercatat 'berhasil', dan
+# riwayat sinkronisasi menunjukkan jam 01.00-07.00 aman padahal tidak ada satu
+# pun prediksi terbentuk. Terminal menulis "DENGAN KEGAGALAN", tetapi itu hanya
+# variabel lokal yang tidak pernah sampai ke basis data.
+#
+# Karena itu langkah 1 kini menutup bagiannya sendiri saja, dan status akhir
+# siklus disetel sesudah ketiga langkah selesai.
+SQL_SELESAI_TARIKAN = """
+UPDATE siklus_sinkronisasi
+SET    jumlah_berhasil = %(berhasil)s,
+       jumlah_gagal    = %(gagal)s
+WHERE  id_siklus = %(id_siklus)s
+"""
+
+# Rincian per langkah. Tanpa kolom ini, satu nilai status harus mewakili tiga
+# langkah sekaligus, dan admin yang melihat 'gagal' tidak dapat mengetahui
+# langkah mana yang jatuh -- padahal penanganannya berbeda: penarikan gagal
+# berarti masalah jaringan atau arsip, sedangkan prediksi gagal dengan penarikan
+# lancar berarti data basi atau berkas model bermasalah.
+SQL_LANGKAH_SIKLUS = """
+UPDATE siklus_sinkronisasi
+SET    prediksi_berhasil = %(prediksi_berhasil)s,
+       prediksi_gagal    = %(prediksi_gagal)s,
+       aktual_terisi     = %(aktual_terisi)s
+WHERE  id_siklus = %(id_siklus)s
+"""
+
+# Migrasi idempoten. Tabel dibuat di luar repositori ini, jadi kolom baru
+# ditambahkan saat proses mulai, bukan lewat berkas skema terpisah.
+SQL_MIGRASI_LANGKAH = """
+ALTER TABLE siklus_sinkronisasi
+    ADD COLUMN IF NOT EXISTS prediksi_berhasil smallint,
+    ADD COLUMN IF NOT EXISTS prediksi_gagal    smallint,
+    ADD COLUMN IF NOT EXISTS aktual_terisi     smallint
+"""
+
 # xmax = 0 hanya benar untuk baris yang baru disisipkan; baris hasil DO UPDATE
 # membawa xmax bukan nol. Itu cara membedakan sisip dan perbarui dalam satu
 # pernyataan.
@@ -257,8 +298,72 @@ def tutup_rincian(sambungan, id_sinkronisasi, waktu_terakhir, masuk, diperbarui,
             "status": status, "pesan": pesan, "durasi": durasi})
 
 
-def selesaikan_siklus(sambungan, id_siklus, berhasil, gagal):
-    status = ("berhasil" if gagal == 0 else "gagal" if berhasil == 0 else "sebagian")
+def status_tarikan(berhasil, gagal):
+    """Status langkah penarikan saja, dihitung dari jumlah sel."""
+    return "berhasil" if gagal == 0 else "gagal" if berhasil == 0 else "sebagian"
+
+
+def selesaikan_tarikan(sambungan, id_siklus, berhasil, gagal):
+    """Catat hasil langkah 1 TANPA menyegel status siklus.
+
+    Siklus tetap berstatus 'berjalan' sampai selesaikan_siklus() dipanggil,
+    supaya kegagalan langkah 2 dan 3 masih dapat mengubahnya. Return status
+    langkah penarikan, untuk dicetak dan untuk dipadukan pemanggil.
+    """
+    with sambungan.cursor() as k:
+        k.execute(SQL_SELESAI_TARIKAN, {"id_siklus": id_siklus,
+                                        "berhasil": berhasil, "gagal": gagal})
+    return status_tarikan(berhasil, gagal)
+
+
+def siapkan_kolom_langkah(sambungan):
+    """Tambahkan kolom rincian langkah. Perlu hak pemilik tabel.
+
+    Dijalankan oleh migrasi_kolom_langkah.py sebagai peran pemilik (postgres),
+    bukan oleh penjadwal: peran aplikasi so2_app sengaja tidak diberi hak DDL.
+    """
+    with sambungan.cursor() as k:
+        k.execute(SQL_MIGRASI_LANGKAH)
+
+
+def ada_kolom_langkah(sambungan):
+    """True bila kolom rincian langkah sudah ada di basis data."""
+    with sambungan.cursor() as k:
+        k.execute("""SELECT 1 FROM information_schema.columns
+                     WHERE table_name = 'siklus_sinkronisasi'
+                       AND column_name = 'prediksi_berhasil'""")
+        return k.fetchone() is not None
+
+
+def catat_langkah_siklus(sambungan, id_siklus, prediksi_berhasil,
+                         prediksi_gagal, aktual_terisi):
+    """Catat hasil langkah 2 dan 3 pada baris siklus.
+
+    Return False bila kolomnya belum ada. Rincian itu bersifat tambahan;
+    ketiadaannya tidak boleh menggagalkan siklus, karena status gabungan --
+    perbaikan yang sebenarnya penting -- sudah tersimpan tanpa kolom ini.
+    """
+    if not ada_kolom_langkah(sambungan):
+        return False
+    with sambungan.cursor() as k:
+        k.execute(SQL_LANGKAH_SIKLUS, {
+            "id_siklus": id_siklus,
+            "prediksi_berhasil": prediksi_berhasil,
+            "prediksi_gagal": prediksi_gagal,
+            "aktual_terisi": aktual_terisi})
+    return True
+
+
+def selesaikan_siklus(sambungan, id_siklus, berhasil, gagal, status=None):
+    """Segel status akhir siklus.
+
+    status=None mempertahankan perilaku lama (dihitung dari jumlah sel) supaya
+    pemanggil yang hanya menjalankan langkah penarikan -- CLI segarkan_pengamatan
+    dan sinkronisasi manual admin -- tidak perlu berubah. Penjadwal memberikan
+    status gabungan ketiga langkah.
+    """
+    if status is None:
+        status = status_tarikan(berhasil, gagal)
     with sambungan.cursor() as k:
         k.execute(SQL_SELESAI_SIKLUS, {"id_siklus": id_siklus, "status": status,
                                        "berhasil": berhasil, "gagal": gagal})

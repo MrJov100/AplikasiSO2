@@ -46,12 +46,20 @@ def catat(*bagian):
 
 
 def satu_siklus(simpan=True):
-    """Jalankan ketiga langkah satu kali. Return True bila seluruhnya lancar."""
+    """Jalankan ketiga langkah satu kali. Return True bila seluruhnya lancar.
+
+    Status yang dicatat di SIKLUS_SINKRONISASI mencakup ketiga langkah, bukan
+    hanya langkah penarikan. Lihat catatan pada bd.SQL_SELESAI_TARIKAN: selama
+    status disegel oleh langkah 1, siklus yang kehilangan seluruh prediksinya
+    tetap tampil 'berhasil' di riwayat sinkronisasi dan admin tidak pernah tahu.
+    """
     lancar = True
     with bd.koneksi() as sambungan:
         # --- Langkah 1 ------------------------------------------------------
         catat("Langkah 1/3 — menyegarkan pengamatan")
-        hasil = sp.jalankan_siklus(sambungan, KODE_SEL, simpan, cetak=catat)
+        # segel_status=False: status akhir disetel di bawah, sesudah langkah 3.
+        hasil = sp.jalankan_siklus(sambungan, KODE_SEL, simpan, cetak=catat,
+                                   segel_status=False)
         if hasil["gagal"]:
             lancar = False
         if simpan:
@@ -88,6 +96,34 @@ def satu_siklus(simpan=True):
         catat(f"  {len(terisi)} prediksi terisi nilai aktualnya")
         if simpan:
             sambungan.commit()
+
+        # --- Segel status siklus --------------------------------------------
+        #
+        # Jumlah yang dicatat tetap jumlah SEL pada langkah penarikan, supaya
+        # arti kolomnya tidak berubah bagi riwayat yang sudah ada. Yang berubah
+        # hanyalah status: 'berhasil' kini menuntut ketiga langkah lancar.
+        # Prediksi yang gagal seluruhnya membuat siklus 'gagal'; gagal sebagian
+        # membuatnya 'sebagian'.
+        if simpan:
+            if gagal == 0 and not hasil["gagal"]:
+                status = "berhasil"
+            elif berhasil == 0 and hasil["berhasil"] == 0:
+                status = "gagal"
+            elif berhasil == 0:
+                # Pengamatan masuk, tetapi tidak satu pun prediksi terbentuk.
+                # Inilah bentuk kegagalan 1 Oktober 2026, dan ia harus terbaca
+                # sebagai kegagalan, bukan keberhasilan sebagian.
+                status = "gagal"
+            else:
+                status = "sebagian"
+            bd.selesaikan_siklus(sambungan, hasil["id_siklus"],
+                                 hasil["berhasil"], hasil["gagal"], status)
+            bd.catat_langkah_siklus(sambungan, hasil["id_siklus"],
+                                    berhasil, gagal, len(terisi))
+            sambungan.commit()
+            catat(f"Siklus {hasil['id_siklus']} dicatat berstatus {status} "
+                  f"(penarikan {hasil['berhasil']}/{len(KODE_SEL)}, "
+                  f"prediksi {berhasil}/{len(KODE_SEL)}, aktual {len(terisi)})")
         else:
             sambungan.rollback()
 

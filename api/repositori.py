@@ -176,6 +176,19 @@ class PenggunaRepository:
                 FROM   pengguna WHERE username = %s""", (username,))
             return k.fetchone()
 
+    def cari_id(self, s, id_pengguna):
+        """Data satu pengguna beserta hash kata sandinya.
+
+        Dipakai Modul Profil Admin: rincian profil maupun pemeriksaan kata sandi
+        lama saat admin menggantinya.
+        """
+        with s.cursor() as k:
+            k.execute("""
+                SELECT id_pengguna, username, kata_sandi_hash, nama_lengkap,
+                       peran, aktif, terakhir_masuk, dibuat_pada
+                FROM   pengguna WHERE id_pengguna = %s""", (id_pengguna,))
+            return k.fetchone()
+
     def catat_masuk(self, s, id_pengguna):
         with s.cursor() as k:
             k.execute("""
@@ -183,14 +196,38 @@ class PenggunaRepository:
                 SET    terakhir_masuk = (now() AT TIME ZONE 'Asia/Jakarta')
                 WHERE  id_pengguna = %s""", (id_pengguna,))
 
+    def ubah_nama(self, s, id_pengguna, nama_lengkap):
+        with s.cursor() as k:
+            k.execute("""
+                UPDATE pengguna SET nama_lengkap = %s
+                WHERE  id_pengguna = %s
+                RETURNING id_pengguna, username, nama_lengkap, peran, aktif,
+                          terakhir_masuk, dibuat_pada""",
+                      (nama_lengkap, id_pengguna))
+            return k.fetchone()
+
+    def ubah_kata_sandi(self, s, id_pengguna, kata_sandi_hash):
+        """Hanya hash yang masuk ke basis data; kata sandi polos tidak disimpan."""
+        with s.cursor() as k:
+            k.execute("""
+                UPDATE pengguna SET kata_sandi_hash = %s
+                WHERE  id_pengguna = %s""", (kata_sandi_hash, id_pengguna))
+
 
 class SiklusSinkronisasiRepository:
     def terakhir(self, s, batas=20):
         with s.cursor() as k:
+            # to_jsonb(...)->>'...' membaca kolom rincian langkah tanpa
+            # menyebutkan namanya di daftar SELECT, sehingga kueri tetap jalan
+            # pada basis data yang belum dimigrasi (lihat
+            # migrasi_kolom_langkah.py) dan bukan memunculkan UndefinedColumn.
             k.execute("""
                 SELECT id_siklus, waktu_mulai, waktu_selesai, pemicu, status,
-                       jumlah_berhasil, jumlah_gagal
-                FROM   siklus_sinkronisasi
+                       jumlah_berhasil, jumlah_gagal,
+                       (to_jsonb(s)->>'prediksi_berhasil')::int AS prediksi_berhasil,
+                       (to_jsonb(s)->>'prediksi_gagal')::int    AS prediksi_gagal,
+                       (to_jsonb(s)->>'aktual_terisi')::int     AS aktual_terisi
+                FROM   siklus_sinkronisasi s
                 ORDER  BY waktu_mulai DESC LIMIT %s""", (batas,))
             return k.fetchall()
 

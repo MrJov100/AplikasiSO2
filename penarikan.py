@@ -119,36 +119,51 @@ def tarik_sel(lintang, bujur, elevasi, hari_mundur=HARI_MUNDUR, batas_waktu=None
         "so2": pd.to_numeric(isi["hourly"]["sulphur_dioxide"], errors="coerce"),
     }).dropna(subset=["so2"])
 
-    # TANGGAL AKHIR TIDAK BOLEH DIAMBIL DARI TANGGAL JAKARTA.
+    # JENDELA ARSIP DISUSUN DAN DIMINTA DALAM HARI UTC, BUKAN HARI JAKARTA.
     #
-    # Arsip Open-Meteo membuka tanggal baru mengikuti UTC, sedangkan Jakarta
-    # (UTC+7) sudah berganti tanggal tujuh jam lebih awal. Antara pukul 00.00
-    # dan 07.00 WIB, tanggal Jakarta karena itu selalu SATU HARI di depan batas
-    # yang diizinkan arsip, dan seluruh permintaan ditolak dengan
-    # "Parameter 'end_date' is out of allowed range from 1940-01-01 to ...".
+    # Dua kegagalan berurutan lahir dari satu sebab yang sama: arsip Open-Meteo
+    # membuka tanggal baru mengikuti UTC, sedangkan Jakarta (UTC+7) sudah
+    # berganti tanggal tujuh jam lebih awal.
     #
-    # Ditemukan 1 Oktober 2026 pukul 00.10 WIB: kesepuluh sel gagal serentak
-    # pada siklus pertama sesudah tengah malam. Sebelumnya tidak pernah
-    # terlihat karena penjadwal belum pernah menyala melewati tengah malam.
+    # 1. Sampai 30 September 2026 end_date diambil dari tanggal Jakarta. Antara
+    #    00.00 dan 07.00 WIB tanggal itu selalu satu hari di depan batas yang
+    #    diizinkan arsip, sehingga seluruh permintaan ditolak dengan "Parameter
+    #    'end_date' is out of allowed range from 1940-01-01 to ...". Terlihat
+    #    1 Oktober 2026 pukul 00.10 WIB, ketika penjadwal pertama kali menyala
+    #    melewati tengah malam.
     #
-    # Pemangkasan ke tanggal UTC aman dan tidak menghilangkan apa pun: pada
-    # jam-jam itu arsip memang belum memuat satu pun jam Jakarta hari baru.
-    # Akibatnya jam terakhir yang lengkap tertinggal, dan penjaga kemutakhiran
-    # pada tentukan_waktu_target akan menolak membentuk prediksi — penolakan
-    # yang benar, jauh lebih baik daripada prediksi atas data yang tidak ada.
-    hari_ini = pd.Timestamp.now(tz=ZONA).normalize().tz_localize(None)
-    batas_arsip = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
-    akhir = min(hari_ini, batas_arsip)
+    # 2. Memangkas end_date ke tanggal UTC menghentikan penolakan itu, tetapi
+    #    jendelanya masih DILABELI dalam waktu Jakarta. Akibatnya jam WIB
+    #    00.00-06.00 tidak pernah ikut diminta: jam-jam itu sudah masuk hari
+    #    Jakarta yang baru, padahal masih berada di dalam hari UTC yang
+    #    diizinkan (00.00 WIB 1 Okt = 17.00 UTC 30 Sep). Pengamatan berhenti di
+    #    23.00 WIB hari sebelumnya, penjaga kemutakhiran menolak, dan enam
+    #    prediksi hilang setiap hari. Terlihat pada log 1 Oktober 2026 siklus
+    #    28-33: sepuluh sel, 72 baris, "sisip 0" di setiap siklus.
+    #
+    # Karena itu jendela kini diminta sepenuhnya dalam hari UTC, lalu labelnya
+    # dikonversi ke waktu Jakarta di pandas. Parameter timezone hanya mengubah
+    # pelabelan dan pengirisan jam, BUKAN nilainya, sehingga kesetaraan dengan
+    # data latih tetap terjaga: models, domains, koordinat, elevasi, dan satuan
+    # tidak disentuh. Permintaan SO2 tetap memakai past_days/forecast_days
+    # dengan label Jakarta; penggabungan di bawah mempertemukan keduanya pada
+    # label Jakarta yang sama.
+    #
+    # Yang tersisa sebagai batas hanyalah jeda penerbitan arsip, sama seperti
+    # siang hari. Bila jeda itu melebar, penjaga kemutakhiran pada
+    # tentukan_waktu_target tetap menolak membentuk prediksi.
+    akhir_utc = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
 
     isi = _minta(API_METEO, {
         "latitude": lintang, "longitude": bujur, "elevation": elevasi,
-        "start_date": (akhir - timedelta(days=hari_mundur)).strftime("%Y-%m-%d"),
-        "end_date": akhir.strftime("%Y-%m-%d"),
+        "start_date": (akhir_utc - timedelta(days=hari_mundur)).strftime("%Y-%m-%d"),
+        "end_date": akhir_utc.strftime("%Y-%m-%d"),
         "hourly": ",".join(VAR_METEO), "models": MODEL_METEO,
-        "timezone": ZONA, **SATUAN})
-    meteo = pd.DataFrame({"time": pd.to_datetime(isi["hourly"]["time"])})
+        "timezone": "UTC", **SATUAN})
+    meteo = pd.DataFrame({"time": pd.to_datetime(isi["hourly"]["time"], utc=True)})
     for v in VAR_METEO:
         meteo[v] = pd.to_numeric(isi["hourly"][v], errors="coerce")
+    meteo["time"] = meteo["time"].dt.tz_convert(ZONA).dt.tz_localize(None)
     meteo = meteo.dropna(subset=VAR_METEO)
 
     tabel = so2.merge(meteo, on="time", how="inner", validate="one_to_one")

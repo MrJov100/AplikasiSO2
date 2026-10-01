@@ -56,6 +56,50 @@ class LayananAutentikasi:
         s.commit()
         return p
 
+    # ---------- Modul Profil Admin ----------
+    # Rincian profil dibaca ulang dari basis data, bukan dari isi token: token
+    # hanya menyimpan nama saat masuk, sehingga nama yang baru diganti akan
+    # tertinggal bila dibaca dari sana.
+    def profil(self, s, id_pengguna):
+        p = self.r.cari_id(s, id_pengguna)
+        if not p:
+            raise ValueError("Akun tidak ditemukan.")
+        return self._tanpa_hash(p)
+
+    def ubah_nama(self, s, id_pengguna, nama_lengkap):
+        nama = (nama_lengkap or "").strip()
+        if len(nama) < 3:
+            raise ValueError("Nama lengkap minimal tiga karakter.")
+        if len(nama) > 100:
+            raise ValueError("Nama lengkap maksimal seratus karakter.")
+        p = self.r.ubah_nama(s, id_pengguna, nama)
+        if not p:
+            raise ValueError("Akun tidak ditemukan.")
+        s.commit()
+        return self._tanpa_hash(p)
+
+    def ubah_kata_sandi(self, s, id_pengguna, kata_sandi_lama, kata_sandi_baru):
+        p = self.r.cari_id(s, id_pengguna)
+        if not p:
+            raise ValueError("Akun tidak ditemukan.")
+        # Kata sandi lama wajib benar supaya sesi yang tertinggal terbuka pada
+        # komputer bersama tidak bisa dipakai mengambil alih akun.
+        if not keamanan.periksa_kata_sandi(kata_sandi_lama, p["kata_sandi_hash"]):
+            raise ValueError("Kata sandi lama salah.")
+        # Batas delapan karakter sama dengan buat_admin.py.
+        if len(kata_sandi_baru or "") < 8:
+            raise ValueError("Kata sandi baru minimal delapan karakter.")
+        if kata_sandi_baru == kata_sandi_lama:
+            raise ValueError("Kata sandi baru harus berbeda dari yang lama.")
+        self.r.ubah_kata_sandi(s, id_pengguna,
+                               keamanan.hash_kata_sandi(kata_sandi_baru))
+        s.commit()
+
+    @staticmethod
+    def _tanpa_hash(p):
+        """Hash kata sandi tidak boleh ikut keluar lewat API."""
+        return {k: v for k, v in dict(p).items() if k != "kata_sandi_hash"}
+
 
 class LayananPrediksi:
     def __init__(self):

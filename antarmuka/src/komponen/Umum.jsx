@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { KELAS_KATEGORI } from '../api.js'
 
 export function Lencana({ kategori }) {
@@ -78,6 +79,54 @@ export function Kemutakhiran({ data }) {
         ? new Date(data.waktu_data_terakhir).toLocaleString('id-ID')
         : 'tidak diketahui'}</b>.
       Sistem menahan diri daripada menampilkan prediksi untuk jam yang sudah lewat.
+    </div>
+  )
+}
+
+/** Dialog pemberitahuan mengambang — dipakai sinkronisasi manual Monitoring.
+ *
+ * Mengganti spanduk statis yang dulu muncul di bawah baris tombol: admin yang
+ * sudah menggulir tabel tidak melihatnya, sehingga penarikan yang berjalan
+ * belasan detik terasa seperti klik yang tidak berefek. Dialog ini menahan
+ * halaman selagi proses berjalan (tanpa tombol tutup), lalu berganti menjadi
+ * ringkasan berhasil/gagal yang harus ditutup admin.
+ *
+ * jenis: 'memuat' | 'berhasil' | 'galat'
+ */
+export function Sorot({ jenis, judul, pesan, tutup }) {
+  const sedang = jenis === 'memuat'
+
+  useEffect(() => {
+    if (sedang || !tutup) return
+    function padaTombol(e) {
+      if (e.key === 'Escape') tutup()
+    }
+    window.addEventListener('keydown', padaTombol)
+    return () => window.removeEventListener('keydown', padaTombol)
+  }, [sedang, tutup])
+
+  return (
+    <div
+      className="sorot-tirai"
+      onClick={sedang ? undefined : tutup}
+      role="alertdialog"
+      aria-modal="true"
+      aria-busy={sedang || undefined}
+    >
+      <div className="sorot-kotak" onClick={(e) => e.stopPropagation()}>
+        <div className={`sorot-ikon ${jenis}`} aria-hidden="true">
+          {jenis === 'memuat' && <span className="sorot-putar" />}
+          {jenis === 'berhasil' && '✓'}
+          {jenis === 'galat' && '!'}
+        </div>
+        <h2>{judul}</h2>
+        {pesan && <p>{pesan}</p>}
+        {!sedang && (
+          <button className="utama" onClick={tutup} autoFocus>
+            Tutup
+          </button>
+        )}
+      </div>
     </div>
   )
 }
