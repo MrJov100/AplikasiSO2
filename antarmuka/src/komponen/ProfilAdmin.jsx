@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { panggil, tanggalPanjang } from '../api.js'
+import { panggil, simpanToken } from '../api.js'
 
 // Pop-up Profil Admin, dibuka dari baris nama pada kaki sidebar.
 //
@@ -39,7 +39,9 @@ export default function ProfilAdmin({ pengguna, setPengguna, tutup }) {
       .catch(() => {})
   }, [setPengguna])
 
-  function selesaiNama(baru) {
+  // Dipakai bersama oleh ganti nama dan ganti username: keduanya menerima
+  // profil terbaru, lalu kembali ke rincian.
+  function selesaiUbah(baru) {
     setProfil(baru)
     setPengguna(baru)
     setBagian('rincian')
@@ -65,8 +67,12 @@ export default function ProfilAdmin({ pengguna, setPengguna, tutup }) {
           <Rincian profil={profil} pilih={setBagian} />
         )}
         {bagian === 'nama' && (
-          <GantiNama nama={profil?.nama_lengkap || ''} selesai={selesaiNama}
+          <GantiNama nama={profil?.nama_lengkap || ''} selesai={selesaiUbah}
                      batal={() => setBagian('rincian')} />
+        )}
+        {bagian === 'username' && (
+          <GantiUsername username={profil?.username || ''} selesai={selesaiUbah}
+                         batal={() => setBagian('rincian')} />
         )}
         {bagian === 'sandi' && (
           <GantiKataSandi selesai={() => setBagian('rincian')}
@@ -97,20 +103,11 @@ function Rincian({ profil, pilih }) {
           <dt>Status akun</dt>
           <dd>{profil?.aktif ? 'Aktif' : 'Nonaktif'}</dd>
         </div>
-        <div>
-          <dt>Terakhir masuk</dt>
-          <dd>{profil?.terakhir_masuk
-            ? new Date(profil.terakhir_masuk).toLocaleString('id-ID')
-            : 'Belum pernah'}</dd>
-        </div>
-        <div>
-          <dt>Akun dibuat</dt>
-          <dd>{profil?.dibuat_pada ? tanggalPanjang(profil.dibuat_pada) : '—'}</dd>
-        </div>
       </dl>
 
-      <div className="profil-aksi">
+      <div className="profil-aksi tegak">
         <button onClick={() => pilih('nama')}>Ganti nama</button>
+        <button onClick={() => pilih('username')}>Ganti username</button>
         <button onClick={() => pilih('sandi')}>Ganti kata sandi</button>
       </div>
     </>
@@ -152,6 +149,63 @@ function GantiNama({ nama, selesai, batal }) {
       <div className="profil-aksi">
         <button className="utama" type="submit"
                 disabled={sedang || !berubah || nilai.trim().length < 3}>
+          {sedang ? 'Menyimpan…' : 'Simpan'}
+        </button>
+        <button type="button" onClick={batal} disabled={sedang}>Batal</button>
+      </div>
+    </form>
+  )
+}
+
+function GantiUsername({ username, selesai, batal }) {
+  const [nilai, setNilai] = useState(username)
+  const [kataSandi, setKataSandi] = useState('')
+  const [galat, setGalat] = useState(null)
+  const [sedang, setSedang] = useState(false)
+
+  async function kirim(e) {
+    e.preventDefault()
+    setGalat(null); setSedang(true)
+    try {
+      const isi = await panggil('/api/auth/username', {
+        method: 'PATCH',
+        body: JSON.stringify({ username_baru: nilai, kata_sandi: kataSandi }),
+      })
+      // Token lama memuat username lama; yang baru dipakai supaya permintaan
+      // berikutnya tidak membawa identitas usang.
+      simpanToken(isi.akses_token)
+      selesai(isi.profil)
+    } catch (e2) {
+      setGalat(e2.message)
+    } finally {
+      setSedang(false)
+    }
+  }
+
+  const bersih = nilai.trim().toLowerCase()
+  const berubah = bersih !== username.trim().toLowerCase()
+
+  return (
+    <form onSubmit={kirim} className="profil-borang">
+      <h3>Ganti username</h3>
+      <div className="catatan ingat">
+        Username dipakai untuk masuk. Sesudah diganti, pakai username baru pada
+        halaman Masuk.
+      </div>
+      <Medan label="Username baru" value={nilai} autoFocus maxLength={50}
+             autoComplete="username" spellCheck="false"
+             petunjuk="Minimal empat karakter; huruf kecil, angka, titik, garis bawah, dan garis datar."
+             onChange={(e) => setNilai(e.target.value)} />
+      <Medan label="Kata sandi" type="password" value={kataSandi}
+             autoComplete="current-password"
+             petunjuk="Diminta sebagai penegasan bahwa ini memang Anda."
+             onChange={(e) => setKataSandi(e.target.value)} />
+
+      {galat && <div className="catatan galat">{galat}</div>}
+
+      <div className="profil-aksi">
+        <button className="utama" type="submit"
+                disabled={sedang || !berubah || bersih.length < 4 || !kataSandi}>
           {sedang ? 'Menyimpan…' : 'Simpan'}
         </button>
         <button type="button" onClick={batal} disabled={sedang}>Batal</button>

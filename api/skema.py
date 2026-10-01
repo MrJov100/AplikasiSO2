@@ -130,6 +130,19 @@ class PermintaanUbahNama(BaseModel):
     nama_lengkap: str
 
 
+class PermintaanUbahUsername(BaseModel):
+    username_baru: str
+    kata_sandi: str
+
+
+class TanggapanUbahUsername(BaseModel):
+    """Username ikut tersimpan di dalam token, jadi token baru dikembalikan
+    supaya sesi yang berjalan tidak memakai identitas yang sudah usang."""
+    profil: ProfilPengguna
+    akses_token: str
+    jenis_token: str = "bearer"
+
+
 class PermintaanUbahKataSandi(BaseModel):
     kata_sandi_lama: str
     kata_sandi_baru: str

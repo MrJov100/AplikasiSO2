@@ -2,6 +2,7 @@
 
 Layanan memanggil repositori dan modul pendukung; tidak menulis SQL sendiri.
 """
+import re
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -77,6 +78,37 @@ class LayananAutentikasi:
             raise ValueError("Akun tidak ditemukan.")
         s.commit()
         return self._tanpa_hash(p)
+
+    def ubah_username(self, s, id_pengguna, username_baru, kata_sandi):
+        """Mengganti username. Kata sandi diminta sebagai penegasan karena
+        username adalah identitas untuk masuk."""
+        p = self.r.cari_id(s, id_pengguna)
+        if not p:
+            raise ValueError("Akun tidak ditemukan.")
+        if not keamanan.periksa_kata_sandi(kata_sandi, p["kata_sandi_hash"]):
+            raise ValueError("Kata sandi salah.")
+
+        # Kekangan ck_pengguna_username menuntut huruf kecil dan minimal empat
+        # karakter; dinormalkan dan diperiksa di sini supaya pesan galatnya
+        # jelas, bukan berupa galat kekangan dari basis data.
+        baru = (username_baru or "").strip().lower()
+        if len(baru) < 4:
+            raise ValueError("Username minimal empat karakter.")
+        if len(baru) > 50:
+            raise ValueError("Username maksimal lima puluh karakter.")
+        if not re.fullmatch(r"[a-z0-9._-]+", baru):
+            raise ValueError("Username hanya boleh huruf kecil, angka, titik, "
+                             "garis bawah, dan garis datar.")
+        if baru == p["username"]:
+            raise ValueError("Username baru sama dengan yang sekarang.")
+
+        lain = self.r.cari_username(s, baru)
+        if lain:
+            raise ValueError("Username sudah dipakai akun lain.")
+
+        hasil = self.r.ubah_username(s, id_pengguna, baru)
+        s.commit()
+        return self._tanpa_hash(hasil)
 
     def ubah_kata_sandi(self, s, id_pengguna, kata_sandi_lama, kata_sandi_baru):
         p = self.r.cari_id(s, id_pengguna)

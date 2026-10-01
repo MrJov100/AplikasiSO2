@@ -256,6 +256,11 @@ button.tautan:hover { opacity: .8; }
 
 .profil-aksi { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.1rem; }
 .profil-aksi button { padding: .45rem .9rem; }
+/* Tombol pilihan pada rincian profil disusun ke bawah selebar dialog, bukan
+   berjajar: ketiganya setara dan lebih gampang dituju begitu. Baris
+   Simpan/Batal di dalam borang tetap berjajar. */
+.profil-aksi.tegak { flex-direction: column; align-items: stretch; gap: .5rem; }
+.profil-aksi.tegak button { width: 100%; text-align: center; }
 @media (prefers-reduced-motion: reduce) {
   .profil-kotak { animation: none; }
 }
