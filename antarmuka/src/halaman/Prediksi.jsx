@@ -105,7 +105,6 @@ export default function Prediksi({ admin }) {
                           <td className="angka">{angka(p.selisih)} µg/m³</td></tr>
                     </>
                   )}
-                  <tr><td>Versi model</td><td className="angka">{p.versi_model}</td></tr>
                   <tr><td>Dibentuk pada</td><td className="angka">{jam(p.dibuat_pada)}</td></tr>
                 </tbody>
               </table>

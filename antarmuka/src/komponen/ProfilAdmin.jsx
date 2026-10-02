@@ -61,7 +61,6 @@ export default function ProfilAdmin({ pengguna, setPengguna, tutup }) {
           </div>
           <div>
             <h2>{profil?.nama_lengkap || '—'}</h2>
-            <p className="kecil">@{profil?.username} · {profil?.peran}</p>
           </div>
         </div>
 

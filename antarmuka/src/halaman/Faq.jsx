@@ -31,11 +31,23 @@ export default function Faq() {
               background: 'none', border: 0, padding: 0, textAlign: 'left',
               width: '100%', font: 'inherit', fontWeight: 600, cursor: 'pointer',
             }}>
-            {terbuka === i ? '−' : '+'} &nbsp;{b.tanya}
+            <span style={{
+              display: 'inline-block', width: '1em', textAlign: 'center',
+              transition: 'transform .3s ease',
+              transform: terbuka === i ? 'rotate(180deg)' : 'none',
+            }}>{terbuka === i ? '−' : '+'}</span> &nbsp;{b.tanya}
           </button>
-          {terbuka === i && (
-            <p style={{ margin: '.6rem 0 0', color: 'var(--abu)' }}>{b.jawab}</p>
-          )}
+          {/* Tinggi dianimasikan lewat grid 0fr -> 1fr agar tak perlu mengukur isi. */}
+          <div style={{
+            display: 'grid',
+            gridTemplateRows: terbuka === i ? '1fr' : '0fr',
+            opacity: terbuka === i ? 1 : 0,
+            transition: 'grid-template-rows .3s ease, opacity .3s ease',
+          }}>
+            <div style={{ overflow: 'hidden' }}>
+              <p style={{ margin: '.6rem 0 0', color: 'var(--abu)' }}>{b.jawab}</p>
+            </div>
+          </div>
         </div>
       ))}
     </>

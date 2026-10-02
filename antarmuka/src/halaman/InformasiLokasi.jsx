@@ -63,12 +63,6 @@ export default function InformasiLokasi({ admin }) {
           </tbody>
         </table>
       </div>
-
-      <div className="catatan info">
-        Koordinat yang tercantum adalah titik pusat sel grid, bukan lokasi alat
-        ukur. Nilai pada sel mewakili rata-rata wilayah sel tersebut menurut
-        resolusi model sumber, yaitu 9 km untuk variabel meteorologi.
-      </div>
     </>
   )
 }
