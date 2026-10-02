@@ -12,7 +12,9 @@ from konfigurasi import VERSI_MODEL                        # noqa: E402
 
 
 class LokasiRepository:
+    """Akses tabel lokasi."""
     def semua(self, s):
+        """Semua lokasi berurutan sesuai urutan tampil."""
         with s.cursor() as k:
             k.execute("""
                 SELECT kode_sel, nama, wilayah_administratif, lintang, bujur,
@@ -21,12 +23,14 @@ class LokasiRepository:
             return k.fetchall()
 
     def cari(self, s, kode_sel):
+        """Satu lokasi berdasarkan kode sel."""
         with s.cursor() as k:
             k.execute("SELECT * FROM lokasi WHERE kode_sel = %s", (kode_sel,))
             return k.fetchone()
 
 
 class PengamatanRepository:
+    """Akses tabel pengamatan (data SO2 dan meteorologi per jam)."""
     def riwayat(self, s, kode_sel, jam):
         """Deret SO2 per jam untuk grafik. Baris dikecualikan tidak ditampilkan."""
         with s.cursor() as k:
@@ -38,6 +42,7 @@ class PengamatanRepository:
             return list(reversed(k.fetchall()))
 
     def terakhir(self, s, kode_sel):
+        """Pengamatan terbaru satu sel yang tidak dikecualikan."""
         with s.cursor() as k:
             k.execute("""
                 SELECT p.waktu, p.so2
@@ -47,6 +52,7 @@ class PengamatanRepository:
             return k.fetchone()
 
     def ringkasan_per_sel(self, s):
+        """Waktu data terakhir, jumlah pengamatan, dan jumlah anomali tiap sel."""
         with s.cursor() as k:
             k.execute("""
                 SELECT l.kode_sel, l.nama, l.urutan_tampil,
@@ -59,6 +65,7 @@ class PengamatanRepository:
             return k.fetchall()
 
     def daftar_anomali(self, s, batas=200):
+        """Pengamatan berstatus bukan 'sah', terbaru lebih dulu."""
         with s.cursor() as k:
             k.execute("""
                 SELECT p.id_pengamatan, l.kode_sel, p.waktu, p.so2, p.suhu,
@@ -71,6 +78,7 @@ class PengamatanRepository:
             return k.fetchall()
 
     def cari(self, s, id_pengamatan):
+        """Satu pengamatan berdasarkan id beserta kode selnya."""
         with s.cursor() as k:
             k.execute("""
                 SELECT p.*, l.kode_sel FROM pengamatan p
@@ -91,6 +99,7 @@ class PengamatanRepository:
             return k.fetchone()
 
     def ubah_nilai(self, s, id_pengamatan, kolom, nilai_baru):
+        """Mengubah nilai satu kolom pengamatan; nama kolom dibatasi daftar putih."""
         if kolom not in ("so2", "suhu", "kelembapan", "titik_embun", "curah_hujan",
                          "tekanan_permukaan", "tutupan_awan", "kecepatan_angin",
                          "arah_angin"):
@@ -109,7 +118,9 @@ class PengamatanRepository:
 
 
 class PrediksiRepository:
+    """Akses tabel prediksi."""
     def terkini(self, s, kode_sel=None):
+        """Prediksi terbaru per sel (atau satu sel bila kode diberikan), berurutan sesuai urutan tampil."""
         with s.cursor() as k:
             k.execute("""
                 SELECT DISTINCT ON (l.kode_sel)
@@ -168,7 +179,9 @@ class PrediksiRepository:
 
 
 class PenggunaRepository:
+    """Akses tabel pengguna (admin)."""
     def cari_username(self, s, username):
+        """Satu pengguna berdasarkan username, termasuk hash kata sandinya."""
         with s.cursor() as k:
             k.execute("""
                 SELECT id_pengguna, username, kata_sandi_hash, nama_lengkap,
@@ -190,6 +203,7 @@ class PenggunaRepository:
             return k.fetchone()
 
     def catat_masuk(self, s, id_pengguna):
+        """Memperbarui waktu terakhir masuk pengguna."""
         with s.cursor() as k:
             k.execute("""
                 UPDATE pengguna
@@ -197,6 +211,7 @@ class PenggunaRepository:
                 WHERE  id_pengguna = %s""", (id_pengguna,))
 
     def ubah_nama(self, s, id_pengguna, nama_lengkap):
+        """Mengganti nama lengkap pengguna dan mengembalikan profil barunya."""
         with s.cursor() as k:
             k.execute("""
                 UPDATE pengguna SET nama_lengkap = %s
@@ -226,7 +241,9 @@ class PenggunaRepository:
 
 
 class SiklusSinkronisasiRepository:
+    """Akses tabel siklus_sinkronisasi."""
     def terakhir(self, s, batas=20):
+        """Siklus sinkronisasi terbaru beserta rincian jumlah langkahnya."""
         with s.cursor() as k:
             # to_jsonb(...)->>'...' membaca kolom rincian langkah tanpa
             # menyebutkan namanya di daftar SELECT, sehingga kueri tetap jalan
@@ -244,7 +261,9 @@ class SiklusSinkronisasiRepository:
 
 
 class SinkronisasiLokasiRepository:
+    """Akses tabel sinkronisasi_lokasi (hasil sinkronisasi per sel)."""
     def terakhir_per_sel(self, s):
+        """Hasil sinkronisasi terakhir tiap sel, dalam bentuk kamus berkunci kode sel."""
         with s.cursor() as k:
             k.execute("""
                 SELECT DISTINCT ON (l.kode_sel)
@@ -260,8 +279,10 @@ class SinkronisasiLokasiRepository:
 
 
 class KoreksiPengamatanRepository:
+    """Akses tabel koreksi_pengamatan (jejak audit tindakan admin)."""
     def catat(self, s, id_pengamatan, id_pengguna, tindakan, kolom_diubah,
               nilai_lama, nilai_baru, alasan):
+        """Menyimpan satu catatan koreksi beserta nilai lama dan barunya."""
         with s.cursor() as k:
             k.execute("""
                 INSERT INTO koreksi_pengamatan (
@@ -274,6 +295,7 @@ class KoreksiPengamatanRepository:
             return k.fetchone()
 
     def riwayat(self, s, batas=100):
+        """Riwayat koreksi terbaru beserta nama admin dan sel terkait."""
         with s.cursor() as k:
             k.execute("""
                 SELECT kp.id_koreksi, kp.id_pengamatan, l.kode_sel,

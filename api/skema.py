@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 
 class Lokasi(BaseModel):
+    """Satu sel grid pemantauan beserta koordinat dan karakteristiknya."""
     kode_sel: str
     nama: str
     wilayah_administratif: str
@@ -17,6 +18,7 @@ class Lokasi(BaseModel):
 
 
 class Pengamatan(BaseModel):
+    """Satu baris pengamatan per jam: SO2, variabel meteorologi, dan status kualitas datanya."""
     id_pengamatan: int
     kode_sel: str
     waktu: datetime
@@ -34,12 +36,14 @@ class Pengamatan(BaseModel):
 
 
 class TitikRiwayat(BaseModel):
+    """Satu titik pada grafik riwayat SO2."""
     waktu: datetime
     so2: float
     status: str
 
 
 class Prediksi(BaseModel):
+    """Hasil prediksi SO2 satu jam ke depan beserta komponen model dan nilai aktualnya (bila sudah ada)."""
     id_prediksi: int
     kode_sel: str
     nama_lokasi: str
@@ -65,6 +69,7 @@ class Kemutakhiran(BaseModel):
 
 
 class PrediksiTerkini(BaseModel):
+    """Tanggapan prediksi terbaru satu sel, dengan keterangan kemutakhiran data."""
     prediksi: Optional[Prediksi] = None
     kemutakhiran: Kemutakhiran
     so2_terakhir: Optional[float] = None
@@ -72,6 +77,7 @@ class PrediksiTerkini(BaseModel):
 
 
 class StatusSel(BaseModel):
+    """Status data dan sinkronisasi satu sel untuk Modul Monitoring."""
     kode_sel: str
     nama: str
     waktu_data_terakhir: Optional[datetime] = None
@@ -85,6 +91,7 @@ class StatusSel(BaseModel):
 
 
 class Ketelitian(BaseModel):
+    """Ukuran ketelitian operasional model dan pembandingnya, beserta cakupan evaluasinya."""
     n: int
     mae_stacking: Optional[float] = None
     rmse_stacking: Optional[float] = None
@@ -104,11 +111,13 @@ class Ketelitian(BaseModel):
 
 
 class PermintaanMasuk(BaseModel):
+    """Isian formulir login."""
     username: str
     kata_sandi: str
 
 
 class Token(BaseModel):
+    """Tanggapan login berisi token akses dan identitas singkat pengguna."""
     akses_token: str
     jenis_token: str = "bearer"
     nama_lengkap: str
@@ -127,10 +136,12 @@ class ProfilPengguna(BaseModel):
 
 
 class PermintaanUbahNama(BaseModel):
+    """Isian untuk mengganti nama lengkap admin."""
     nama_lengkap: str
 
 
 class PermintaanUbahUsername(BaseModel):
+    """Isian untuk mengganti username; kata sandi sebagai penegasan."""
     username_baru: str
     kata_sandi: str
 
@@ -144,11 +155,13 @@ class TanggapanUbahUsername(BaseModel):
 
 
 class PermintaanUbahKataSandi(BaseModel):
+    """Isian untuk mengganti kata sandi."""
     kata_sandi_lama: str
     kata_sandi_baru: str
 
 
 class PermintaanKoreksi(BaseModel):
+    """Isian tindakan koreksi admin atas satu pengamatan."""
     id_pengamatan: int
     tindakan: str                      # tandai_anomali|kecualikan|pulihkan|ubah_nilai
     alasan: str
@@ -157,6 +170,7 @@ class PermintaanKoreksi(BaseModel):
 
 
 class Koreksi(BaseModel):
+    """Satu catatan jejak audit koreksi pengamatan."""
     id_koreksi: int
     id_pengamatan: int
     kode_sel: str

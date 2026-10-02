@@ -259,6 +259,7 @@ SQL_ID_LOKASI = "SELECT id_lokasi FROM lokasi WHERE kode_sel = %(kode)s"
 
 
 def id_lokasi(sambungan, kode_sel):
+    """Mencari id_lokasi dari kode sel; galat bila sel tidak terdaftar."""
     with sambungan.cursor() as k:
         k.execute(SQL_ID_LOKASI, {"kode": kode_sel})
         b = k.fetchone()
@@ -276,12 +277,14 @@ def so2_pada(sambungan, kode_sel, waktu):
 
 
 def mulai_siklus(sambungan, pemicu="penjadwal", id_pengguna=None):
+    """Membuka satu baris siklus sinkronisasi baru dan mengembalikan id-nya."""
     with sambungan.cursor() as k:
         k.execute(SQL_MULAI_SIKLUS, {"pemicu": pemicu, "id_pengguna": id_pengguna})
         return k.fetchone()["id_siklus"]
 
 
 def buka_rincian(sambungan, id_siklus, kode_sel):
+    """Membuka rincian sinkronisasi satu sel (berstatus 'gagal' sementara) dan mengembalikan id-nya."""
     with sambungan.cursor() as k:
         k.execute(SQL_RINCIAN, {"id_siklus": id_siklus, "kode": kode_sel,
                                 "waktu_terakhir": None, "status": "gagal",
@@ -291,6 +294,7 @@ def buka_rincian(sambungan, id_siklus, kode_sel):
 
 def tutup_rincian(sambungan, id_sinkronisasi, waktu_terakhir, masuk, diperbarui,
                   anomali, status, pesan, durasi):
+    """Menutup rincian sinkronisasi satu sel dengan jumlah baris, status, pesan, dan durasi akhirnya."""
     with sambungan.cursor() as k:
         k.execute(SQL_PERBARUI_RINCIAN, {
             "id_sinkronisasi": id_sinkronisasi, "waktu_terakhir": waktu_terakhir,
@@ -519,12 +523,14 @@ def isi_nilai_aktual(sambungan):
 
 
 def prediksi_menunggu(sambungan):
+    """Jumlah prediksi yang nilai aktualnya belum terisi beserta yang paling lama menunggu."""
     with sambungan.cursor() as k:
         k.execute(SQL_PREDIKSI_MENUNGGU)
         return k.fetchone()
 
 
 def ketelitian_operasional(sambungan, versi_model=VERSI_MODEL):
+    """Menghitung MAE dan RMSE model dan pembanding persistensi, beserta cakupan jam evaluasinya."""
     with sambungan.cursor() as k:
         k.execute(SQL_KETELITIAN, {"versi": versi_model})
         return k.fetchone()

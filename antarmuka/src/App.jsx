@@ -13,6 +13,8 @@ import Masuk from './halaman/Masuk.jsx'
 import Monitoring from './halaman/Monitoring.jsx'
 import RiwayatPrediksi from './halaman/RiwayatPrediksi.jsx'
 
+// Komponen akar: memulihkan sesi admin dari token, lalu menyusun sidebar dan rute
+// halaman; halaman Monitoring dan Riwayat hanya bisa dibuka admin.
 export default function App() {
   const [pengguna, setPengguna] = useState(null)
   const [siap, setSiap] = useState(false)

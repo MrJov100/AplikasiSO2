@@ -58,6 +58,7 @@ def saat_mulai():
 
 @app.get("/api/sehat", tags=["Sistem"])
 def sehat():
+    """Pemeriksaan kesehatan layanan (health check)."""
     return {"status": "sehat"}
 
 
@@ -69,6 +70,7 @@ if not DIST.is_dir():
     # supaya tidak tampak seperti galat.
     @app.get("/", include_in_schema=False)
     def akar_belum_dibangun():
+        """Mengalihkan alamat akar ke dokumentasi API selama antarmuka belum di-build."""
         return RedirectResponse("/docs")
 
 if DIST.is_dir():

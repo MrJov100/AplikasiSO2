@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import { panggil, angka, jam } from "../api.js";
 import { Memuat, Galat, Sorot } from "../komponen/Umum.jsx";
 
+// Kolom pengamatan yang boleh dikoreksi admin, beserta labelnya.
 const KOLOM_BOLEH = [
   ["so2", "SO₂ (µg/m³)"],
   ["suhu", "Suhu (°C)"],
@@ -14,6 +15,7 @@ const KOLOM_BOLEH = [
   ["arah_angin", "Arah angin (°)"],
 ];
 
+// Tab pada halaman Monitoring.
 const TAB = [
   ["status", "Status per sel"],
   ["anomali", "Pengamatan ditandai"],
@@ -36,6 +38,7 @@ function PanelKoreksi({ baris, selesai, batal }) {
   const [galat, setGalat] = useState(null);
   const [sedang, setSedang] = useState(false);
 
+  // Mengirim tindakan koreksi ke server lalu memberi tahu induk bila berhasil.
   async function kirim() {
     setGalat(null);
     setSedang(true);
@@ -156,6 +159,8 @@ function PanelKoreksi({ baris, selesai, batal }) {
   );
 }
 
+// Halaman Monitoring Data (admin): status per sel, pengamatan ditandai, jejak
+// koreksi, riwayat sinkronisasi, serta pemicu sinkronisasi manual.
 export default function Monitoring() {
   const [tab, setTab] = useState("status");
   const [data, setData] = useState(null);
@@ -165,6 +170,7 @@ export default function Monitoring() {
   const [muatUlang, setMuatUlang] = useState(0);
   const [peringatan, setPeringatan] = useState(null);
 
+  // Endpoint yang dimuat untuk tiap tab.
   const JALUR = {
     status: "/api/monitoring/status",
     anomali: "/api/monitoring/anomali?batas=300",

@@ -13,6 +13,7 @@ from konfigurasi import FOLDER_MODEL, KODE_SEL, PG
 
 
 def main():
+    """Titik masuk CLI: memeriksa versi pustaka, berkas model, koneksi PostgreSQL, dan hak akses."""
     galat = 0
 
     print("1. Versi pustaka")

@@ -7,6 +7,7 @@ import {
 import { panggil, angka, jam } from '../api.js'
 import { Memuat, Galat } from '../komponen/Umum.jsx'
 
+// Pilihan rentang waktu grafik, dalam jam.
 const PILIHAN_JAM = [
   { nilai: 24, label: '24 jam' },
   { nilai: 72, label: '3 hari' },
@@ -14,6 +15,7 @@ const PILIHAN_JAM = [
   { nilai: 720, label: '30 hari' },
 ]
 
+// Halaman Visualisasi Riwayat: grafik SO₂ per jam satu sel terhadap garis baku mutu.
 export default function Visualisasi({ admin }) {
   const { kodeSel } = useParams()
   const navigasi = useNavigate()
@@ -31,6 +33,7 @@ export default function Visualisasi({ admin }) {
       .then(setData).catch((e) => setGalat(e.message))
   }, [dipilih, rentang])
 
+  // Mengganti sel yang dipilih dan menyelaraskan alamat halaman.
   function pilih(kode) {
     setDipilih(kode)
     navigasi(`/visualisasi/${kode}`, { replace: true })

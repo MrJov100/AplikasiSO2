@@ -50,6 +50,7 @@ def booster_tidak_dipulihkan():
     asli = xgboost.core.Booster.__setstate__
 
     def lewati(self, state):
+        """Pengganti __setstate__ XGBoost: memulihkan atribut tanpa memuat buffer Booster yang tak terbaca di Windows."""
         state = dict(state)
         state["handle"] = None          # jangan panggil UnserializeFromBuffer
         self.__dict__.update(state)
@@ -62,6 +63,7 @@ def booster_tidak_dipulihkan():
 
 
 def main():
+    """Titik masuk CLI: mengonversi kesepuluh berkas model Colab menjadi berkas portabel."""
     if not FOLDER_MODEL_ASLI.exists():
         print(f"FOLDER_MODEL_ASLI tidak ditemukan: {FOLDER_MODEL_ASLI}")
         return 1

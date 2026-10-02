@@ -14,6 +14,7 @@ from api import keamanan
 
 
 def main():
+    """Titik masuk CLI: membuat akun admin dengan kata sandi yang ditanyakan secara tersembunyi."""
     p = argparse.ArgumentParser(description="Buat akun admin")
     p.add_argument("--username", required=True)
     p.add_argument("--nama", required=True)

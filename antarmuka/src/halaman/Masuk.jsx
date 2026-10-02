@@ -14,6 +14,7 @@ export default function Masuk({ pengguna, setPengguna }) {
 
   if (pengguna) return <Navigate to="/monitoring" replace />
 
+  // Mengirim kredensial ke server; bila sah, menyimpan token dan membuka Monitoring.
   async function kirim(e) {
     e.preventDefault()
     setGalat(null); setSedang(true)

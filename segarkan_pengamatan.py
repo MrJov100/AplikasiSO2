@@ -198,6 +198,7 @@ def jalankan_siklus(sambungan, daftar=None, simpan=True, batas=None,
 
 
 def main():
+    """Titik masuk CLI: menjalankan satu siklus sinkronisasi pengamatan untuk satu atau semua sel."""
     p = argparse.ArgumentParser(description="Satu siklus sinkronisasi pengamatan")
     p.add_argument("--sel", help="satu sel saja, misalnya G04")
     p.add_argument("--simpan", action="store_true", help="tulis ke basis data")

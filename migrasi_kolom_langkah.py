@@ -61,6 +61,7 @@ WHERE  id_siklus = ANY(%(id)s)
 
 
 def main():
+    """Titik masuk CLI: menambah kolom rincian langkah dan (opsional) memperbaiki status siklus lampau."""
     p = argparse.ArgumentParser(description="Migrasi kolom rincian langkah")
     kel = p.add_mutually_exclusive_group(required=True)
     kel.add_argument("--periksa", action="store_true",

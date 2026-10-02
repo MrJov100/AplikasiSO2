@@ -58,6 +58,7 @@ def prediksi_satu_sel(sambungan, kode_sel, batas_waktu=None, sekarang=None):
 
 
 def cetak(h):
+    """Mencetak ringkasan hasil prediksi satu sel ke layar."""
     print(f"\n[{h['kode_sel']}] prediksi untuk {h['waktu_prediksi']}")
     print(f"  dasar t-1..t-3   : {', '.join(str(j) for j in h['jam_lag'])}")
     print(f"  id_pengamatan    : {h['id_lag']}")
@@ -72,6 +73,7 @@ def cetak(h):
 
 
 def main():
+    """Titik masuk CLI: memprediksi satu atau semua sel dari basis data, opsional menyimpannya."""
     p = argparse.ArgumentParser(description="Prediksi SO2 dari basis data")
     kel = p.add_mutually_exclusive_group(required=True)
     kel.add_argument("--sel", help="kode sel grid, misalnya G04")

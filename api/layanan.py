@@ -34,18 +34,24 @@ def _kemutakhiran(waktu_terakhir):
 
 
 class LayananLokasi:
+    """Layanan informasi lokasi sel grid."""
     def __init__(self):
+        """Menyiapkan repositori lokasi."""
         self.r = repo.LokasiRepository()
 
     def daftar(self, s):
+        """Mengembalikan semua lokasi berurutan sesuai urutan tampil."""
         return self.r.semua(s)
 
 
 class LayananAutentikasi:
+    """Layanan masuk dan pengelolaan profil admin (nama, username, kata sandi)."""
     def __init__(self):
+        """Menyiapkan repositori pengguna."""
         self.r = repo.PenggunaRepository()
 
     def masuk(self, s, username, kata_sandi):
+        """Memverifikasi kredensial; mengembalikan data pengguna bila sah, None bila gagal."""
         p = self.r.cari_username(s, (username or "").strip().lower())
         # Pesan galat sengaja sama untuk username salah maupun kata sandi salah,
         # supaya tidak membocorkan username mana yang terdaftar.
@@ -62,12 +68,14 @@ class LayananAutentikasi:
     # hanya menyimpan nama saat masuk, sehingga nama yang baru diganti akan
     # tertinggal bila dibaca dari sana.
     def profil(self, s, id_pengguna):
+        """Membaca profil terkini admin dari basis data, tanpa hash kata sandi."""
         p = self.r.cari_id(s, id_pengguna)
         if not p:
             raise ValueError("Akun tidak ditemukan.")
         return self._tanpa_hash(p)
 
     def ubah_nama(self, s, id_pengguna, nama_lengkap):
+        """Mengganti nama lengkap admin setelah memvalidasi panjangnya."""
         nama = (nama_lengkap or "").strip()
         if len(nama) < 3:
             raise ValueError("Nama lengkap minimal tiga karakter.")
@@ -111,6 +119,7 @@ class LayananAutentikasi:
         return self._tanpa_hash(hasil)
 
     def ubah_kata_sandi(self, s, id_pengguna, kata_sandi_lama, kata_sandi_baru):
+        """Mengganti kata sandi admin setelah memeriksa kata sandi lama dan aturan kata sandi baru."""
         p = self.r.cari_id(s, id_pengguna)
         if not p:
             raise ValueError("Akun tidak ditemukan.")
@@ -134,11 +143,14 @@ class LayananAutentikasi:
 
 
 class LayananPrediksi:
+    """Layanan penyajian prediksi SO2 terkini beserta keterangan kemutakhiran datanya."""
     def __init__(self):
+        """Menyiapkan repositori prediksi dan pengamatan."""
         self.r = repo.PrediksiRepository()
         self.rp = repo.PengamatanRepository()
 
     def terkini(self, s, kode_sel):
+        """Prediksi terbaru satu sel, dengan status kemutakhiran dan SO2 aktual terakhir."""
         prediksi = self.r.terkini(s, kode_sel)
         terakhir = self.rp.terakhir(s, kode_sel)
         km = _kemutakhiran(terakhir["waktu"] if terakhir else None)
@@ -152,6 +164,7 @@ class LayananPrediksi:
                 "pesan": pesan}
 
     def semua_terkini(self, s):
+        """Prediksi terbaru seluruh sel, masing-masing dengan status kemutakhiran data."""
         prediksi = self.r.terkini(s, None)
         hasil = []
         for p in prediksi:
@@ -162,10 +175,13 @@ class LayananPrediksi:
 
 
 class LayananVisualisasi:
+    """Layanan data untuk grafik riwayat SO2."""
     def __init__(self):
+        """Menyiapkan repositori pengamatan."""
         self.r = repo.PengamatanRepository()
 
     def riwayat(self, s, kode_sel, jam):
+        """Deret SO2 per jam satu sel bersama baku mutu dan ambang kategori."""
         titik = self.r.riwayat(s, kode_sel, jam)
         return {"kode_sel": kode_sel, "jam": jam,
                 "baku_mutu_satu_jam": BAKU_MUTU_1_JAM,
@@ -180,12 +196,14 @@ class LayananSinkronisasi:
     satu layanan."""
 
     def __init__(self):
+        """Menyiapkan repositori pengamatan, sinkronisasi, siklus, dan koreksi."""
         self.rp = repo.PengamatanRepository()
         self.rsl = repo.SinkronisasiLokasiRepository()
         self.rs = repo.SiklusSinkronisasiRepository()
         self.rk = repo.KoreksiPengamatanRepository()
 
     def status(self, s):
+        """Ringkasan status data dan sinkronisasi tiap sel untuk Modul Monitoring."""
         ringkas = self.rp.ringkasan_per_sel(s)
         sinkron = self.rsl.terakhir_per_sel(s)
         hasil = []
@@ -202,12 +220,15 @@ class LayananSinkronisasi:
         return hasil
 
     def siklus_terakhir(self, s, batas=20):
+        """Siklus sinkronisasi terbaru, paling baru lebih dulu."""
         return self.rs.terakhir(s, batas)
 
     def anomali(self, s, batas=200):
+        """Pengamatan yang berstatus bukan 'sah'."""
         return self.rp.daftar_anomali(s, batas)
 
     def riwayat_koreksi(self, s, batas=100):
+        """Jejak audit koreksi admin terbaru."""
         return self.rk.riwayat(s, batas)
 
     def koreksi(self, s, id_pengguna, permintaan):
@@ -265,10 +286,13 @@ class LayananSinkronisasi:
 
 
 class LayananRiwayat:
+    """Layanan riwayat prediksi dan ketelitian model."""
     def __init__(self):
+        """Menyiapkan repositori prediksi."""
         self.r = repo.PrediksiRepository()
 
     def riwayat(self, s, kode_sel, batas, hanya_terisi):
+        """Riwayat prediksi untuk versi model produksi, opsional hanya yang sudah punya nilai aktual."""
         return self.r.riwayat(s, kode_sel, batas, hanya_terisi, VERSI_MODEL)
 
     def ketelitian(self, s):

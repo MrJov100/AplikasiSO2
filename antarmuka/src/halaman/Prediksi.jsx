@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { panggil, angka, jam, tanggalPanjang } from '../api.js'
 import { Lencana, Memuat, Galat, Kemutakhiran } from '../komponen/Umum.jsx'
 
+// Halaman Prediksi SO₂: prediksi satu jam ke depan untuk sel yang dipilih,
+// beserta keluaran tiap model dan keterangan kemutakhiran data.
 export default function Prediksi({ admin }) {
   const { kodeSel } = useParams()
   const navigasi = useNavigate()
@@ -20,6 +22,7 @@ export default function Prediksi({ admin }) {
     panggil(`/api/prediksi/terkini/${dipilih}`).then(setData).catch((e) => setGalat(e.message))
   }, [dipilih])
 
+  // Mengganti sel yang dipilih dan menyelaraskan alamat halaman.
   function pilih(kode) {
     setDipilih(kode)
     navigasi(`/prediksi/${kode}`, { replace: true })

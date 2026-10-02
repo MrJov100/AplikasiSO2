@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { panggil, angka, jam } from '../api.js'
 import { Lencana, Memuat, Galat } from '../komponen/Umum.jsx'
 
+// Halaman Beranda: prediksi terbaru kesepuluh sel grid sekaligus.
 // `admin`: kode sel (G01–G10) hanya ditampilkan bagi admin.
 export default function Beranda({ admin }) {
   const [data, setData] = useState(null)

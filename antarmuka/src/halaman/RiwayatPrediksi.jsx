@@ -21,8 +21,11 @@ function rentangJam(daftar) {
   return bagian.join(', ')
 }
 
+// Jumlah baris tabel per halaman.
 const PER_HALAMAN = 10
 
+// Komponen halaman Riwayat Prediksi: tabel prediksi vs nilai sebenarnya dan
+// panel ketelitian operasional model.
 export default function RiwayatPrediksi() {
   const [lokasi, setLokasi] = useState([])
   const [sel, setSel] = useState('')

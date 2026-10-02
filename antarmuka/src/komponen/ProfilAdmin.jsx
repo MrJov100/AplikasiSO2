@@ -7,6 +7,7 @@ import { panggil, simpanToken } from '../api.js'
 // kata sandi. Rincian datang dari /api/auth/saya — bukan dari isi token —
 // supaya nama yang baru diganti langsung tampil benar.
 
+// Satu isian formulir berlabel dengan petunjuk opsional.
 function Medan({ label, petunjuk, ...sisa }) {
   return (
     <label className="medan">
@@ -17,6 +18,7 @@ function Medan({ label, petunjuk, ...sisa }) {
   )
 }
 
+// Dialog Profil Admin: mengelola tampilan bagian rincian, ganti nama, username, dan sandi.
 export default function ProfilAdmin({ pengguna, setPengguna, tutup }) {
   const [profil, setProfil] = useState(pengguna)
   const [bagian, setBagian] = useState('rincian')   // rincian|nama|sandi
@@ -83,6 +85,7 @@ export default function ProfilAdmin({ pengguna, setPengguna, tutup }) {
   )
 }
 
+// Tampilan rincian akun beserta tombol menuju bagian pengubahan.
 function Rincian({ profil, pilih }) {
   return (
     <>
@@ -114,6 +117,7 @@ function Rincian({ profil, pilih }) {
   )
 }
 
+// Formulir mengganti nama lengkap.
 function GantiNama({ nama, selesai, batal }) {
   const [nilai, setNilai] = useState(nama)
   const [galat, setGalat] = useState(null)
@@ -157,6 +161,7 @@ function GantiNama({ nama, selesai, batal }) {
   )
 }
 
+// Formulir mengganti username; memerlukan kata sandi sebagai penegasan.
 function GantiUsername({ username, selesai, batal }) {
   const [nilai, setNilai] = useState(username)
   const [kataSandi, setKataSandi] = useState('')
@@ -214,6 +219,7 @@ function GantiUsername({ username, selesai, batal }) {
   )
 }
 
+// Formulir mengganti kata sandi; kata sandi lama wajib benar.
 function GantiKataSandi({ selesai, batal }) {
   const [lama, setLama] = useState('')
   const [baru, setBaru] = useState('')

@@ -22,10 +22,12 @@ skema_oauth = OAuth2PasswordBearer(tokenUrl="api/auth/login", auto_error=False)
 
 
 def hash_kata_sandi(kata_sandi: str) -> str:
+    """Mengubah kata sandi polos menjadi hash bcrypt untuk disimpan."""
     return bcrypt.hashpw(kata_sandi.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def periksa_kata_sandi(kata_sandi: str, hash_tersimpan: str) -> bool:
+    """Memeriksa kecocokan kata sandi polos dengan hash tersimpan; False bila hash tidak valid."""
     try:
         return bcrypt.checkpw(kata_sandi.encode("utf-8"),
                               hash_tersimpan.encode("utf-8"))
@@ -34,6 +36,7 @@ def periksa_kata_sandi(kata_sandi: str, hash_tersimpan: str) -> bool:
 
 
 def buat_token(pengguna) -> str:
+    """Menerbitkan token JWT berisi identitas pengguna dan waktu kedaluwarsa."""
     kedaluwarsa = datetime.now(timezone.utc) + timedelta(hours=MASA_BERLAKU_JAM)
     return jwt.encode({
         "sub": str(pengguna["id_pengguna"]),

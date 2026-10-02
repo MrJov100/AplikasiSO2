@@ -10,6 +10,7 @@ export default function Sidebar({ pengguna, setPengguna }) {
   const kelas = ({ isActive }) => (isActive ? "aktif" : "");
   const [bukaProfil, setBukaProfil] = useState(false);
 
+  // Keluar: menghapus token, mengosongkan pengguna, dan kembali ke Beranda.
   function keluar() {
     hapusToken();
     setPengguna(null);

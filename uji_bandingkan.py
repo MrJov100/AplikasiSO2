@@ -48,6 +48,7 @@ SEL_GRID = {
 
 
 def _minta(url, params):
+    """Permintaan GET ke Open-Meteo yang mengembalikan JSON, atau galat bila tanggapan bukan JSON."""
     r = requests.get(url, params=params, timeout=30)
     try:
         isi = r.json()
@@ -229,6 +230,7 @@ def banding_target(kode_sel, target, toleransi, sambungan):
 
 
 def main():
+    """Titik masuk CLI: membandingkan data basis data dengan Open-Meteo per jam dan melaporkan selisihnya."""
     p = argparse.ArgumentParser(description="Bandingkan jalur basis data dan API")
     p.add_argument("--sel", required=True)
     p.add_argument("--target", help="jam yang diprediksi, 'YYYY-MM-DD HH:MM'")

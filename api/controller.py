@@ -40,6 +40,7 @@ autentikasi = APIRouter(prefix="/api/auth", tags=["Autentikasi"])
 
 @autentikasi.post("/login", response_model=skema.Token)
 def masuk(permintaan: skema.PermintaanMasuk, s=Depends(sambungan)):
+    """Endpoint login: memverifikasi username dan kata sandi, lalu menerbitkan token akses."""
     p = l_auth.masuk(s, permintaan.username, permintaan.kata_sandi)
     if not p:
         raise HTTPException(status_code=401,
@@ -132,11 +133,13 @@ informasi = APIRouter(prefix="/api/informasi", tags=["Informasi"])
 
 @informasi.get("/lokasi", response_model=list[skema.Lokasi])
 def daftar_lokasi(s=Depends(sambungan)):
+    """Daftar kesepuluh sel grid beserta koordinat dan karakteristiknya."""
     return l_lokasi.daftar(s)
 
 
 @informasi.get("/tentang")
 def tentang():
+    """Informasi umum aplikasi: sumber data, baku mutu, ambang kategori, dan variabel model."""
     return {
         "nama": "Prediksi Konsentrasi SO₂ Jabodetabek",
         "keterangan": (
@@ -168,6 +171,7 @@ def tentang():
 
 @informasi.get("/faq")
 def faq():
+    """Daftar pertanyaan yang sering diajukan beserta jawabannya."""
     return [
         {"tanya": "Dari mana datanya?",
          "jawab": "Open-Meteo. Konsentrasi SO₂ berasal dari CAMS Global dan "
@@ -202,29 +206,34 @@ monitoring = APIRouter(prefix="/api/monitoring", tags=["Monitoring"])
 
 @monitoring.get("/status", response_model=list[skema.StatusSel])
 def status_data(s=Depends(sambungan), pengguna=admin):
+    """Status kemutakhiran data dan sinkronisasi terakhir tiap sel grid, untuk Modul Monitoring."""
     return l_sinkron.status(s)
 
 
 @monitoring.get("/siklus")
 def siklus(batas: int = Query(20, ge=1, le=200), s=Depends(sambungan), pengguna=admin):
+    """Riwayat siklus sinkronisasi terbaru."""
     return l_sinkron.siklus_terakhir(s, batas)
 
 
 @monitoring.get("/anomali")
 def anomali(batas: int = Query(200, ge=1, le=1000),
             s=Depends(sambungan), pengguna=admin):
+    """Daftar pengamatan yang berstatus anomali atau dikecualikan."""
     return l_sinkron.anomali(s, batas)
 
 
 @monitoring.get("/koreksi")
 def riwayat_koreksi(batas: int = Query(100, ge=1, le=500),
                     s=Depends(sambungan), pengguna=admin):
+    """Jejak audit koreksi yang pernah dilakukan admin atas data pengamatan."""
     return l_sinkron.riwayat_koreksi(s, batas)
 
 
 @monitoring.post("/koreksi")
 def catat_koreksi(permintaan: skema.PermintaanKoreksi,
                   s=Depends(sambungan), pengguna=admin):
+    """Mencatat tindakan admin (tandai, kecualikan, pulihkan, ubah nilai) atas satu pengamatan."""
     try:
         return l_sinkron.koreksi(s, pengguna["id_pengguna"], permintaan)
     except ValueError as e:
@@ -282,12 +291,14 @@ def riwayat_prediksi(kode_sel: str | None = None,
                      batas: int = Query(200, ge=1, le=2000),
                      hanya_terisi: bool = False,
                      s=Depends(sambungan), pengguna=admin):
+    """Riwayat prediksi beserta nilai aktualnya, dapat disaring per sel."""
     return l_riwayat.riwayat(s, kode_sel.upper() if kode_sel else None,
                              batas, hanya_terisi)
 
 
 @riwayat.get("/ketelitian", response_model=skema.Ketelitian)
 def ketelitian(s=Depends(sambungan), pengguna=admin):
+    """Ukuran ketelitian operasional model (MAE, RMSE, skill score) dibanding pembanding."""
     return l_riwayat.ketelitian(s)
 
 

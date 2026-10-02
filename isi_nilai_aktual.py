@@ -61,6 +61,7 @@ def cetak_ketelitian(sambungan):
 
 
 def main():
+    """Titik masuk CLI: mengisi nilai_aktual pada prediksi yang jamnya sudah terjadi, lalu melaporkan ketelitian."""
     p = argparse.ArgumentParser(description="Isi nilai aktual pada tabel PREDIKSI")
     p.add_argument("--simpan", action="store_true", help="tulis ke basis data")
     p.add_argument("--ketelitian", action="store_true",

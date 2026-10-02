@@ -42,6 +42,7 @@ from konfigurasi import KODE_SEL, MENIT_JADWAL, VERSI_MODEL, ZONA
 
 
 def catat(*bagian):
+    """Mencetak pesan log dengan awalan waktu."""
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]", *bagian, flush=True)
 
 
@@ -142,6 +143,7 @@ def jalan_terjadwal():
 
 
 def main():
+    """Titik masuk CLI: menjalankan satu siklus (--sekali/--coba) atau penjadwal per jam yang berjalan terus."""
     p = argparse.ArgumentParser(description="Penjadwal per jam")
     p.add_argument("--sekali", action="store_true",
                    help="jalankan satu siklus lalu berhenti")

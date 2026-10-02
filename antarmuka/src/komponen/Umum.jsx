@@ -1,19 +1,23 @@
 import { useEffect } from 'react'
 import { KELAS_KATEGORI } from '../api.js'
 
+// Lencana berwarna untuk kategori kualitas udara.
 export function Lencana({ kategori }) {
   if (!kategori) return <span className="lencana abu">Belum ada</span>
   return <span className={`lencana ${KELAS_KATEGORI[kategori] || 'abu'}`}>{kategori}</span>
 }
 
+// Penanda bahwa data sedang dimuat.
 export function Memuat({ pesan = 'Memuat data…' }) {
   return <div className="tengah">{pesan}</div>
 }
 
+// Kotak pesan galat.
 export function Galat({ pesan }) {
   return <div className="catatan galat">{pesan}</div>
 }
 
+// Pesan untuk keadaan tanpa data.
 export function Kosong({ pesan }) {
   return <div className="tengah">{pesan}</div>
 }
