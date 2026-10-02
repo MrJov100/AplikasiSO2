@@ -131,8 +131,21 @@ def jalankan_siklus(sambungan, daftar=None, simpan=True, batas=None,
 
     berhasil = gagal = total_anomali = total_dilewati = 0
     for kode in daftar:
+        mulai_sel = time.monotonic()
         try:
-            r = proses_sel(sambungan, kode, id_siklus, simpan, batas)
+            # Tiap sel ditulis di dalam savepoint-nya sendiri. Dulu di sini
+            # dipakai sambungan.rollback(), yang membatalkan SELURUH transaksi
+            # -- termasuk baris SIKLUS_SINKRONISASI yang baru dibuat
+            # mulai_siklus() di atas, karena pemanggil belum commit. Akibatnya
+            # sinkronisasi yang gagal tidak pernah muncul di tab "Riwayat
+            # sinkronisasi": UPDATE penyegel status mengenai nol baris, dan
+            # yang tersimpan hanyalah transaksi kosong. Savepoint membatalkan
+            # tulisan sel yang gagal saja dan membiarkan baris siklus hidup.
+            if simpan:
+                with sambungan.transaction():
+                    r = proses_sel(sambungan, kode, id_siklus, simpan, batas)
+            else:
+                r = proses_sel(sambungan, kode, id_siklus, simpan, batas)
             berhasil += 1
             total_anomali += r["anomali"]
             total_dilewati += r["dilewati"]
@@ -143,9 +156,30 @@ def jalankan_siklus(sambungan, daftar=None, simpan=True, batas=None,
                 cetak(f"       -> {c}")
         except Exception as e:                          # noqa: BLE001
             gagal += 1
-            cetak(f"{kode:<5}  GAGAL: {type(e).__name__}: {e}")
+            pesan = f"{type(e).__name__}: {e}"
+            cetak(f"{kode:<5}  GAGAL: {pesan}")
+            # Rincian per sel dicatat SESUDAH savepoint dibatalkan: baris
+            # rincian yang dibuka proses_sel() ikut hilang bersama savepoint,
+            # jadi alasan kegagalan harus ditulis ulang di luar lingkupnya.
+            #
+            # Pencatatan itu sendiri dibungkus savepoint lagi. Tanpa savepoint,
+            # satu INSERT yang ditolak -- misalnya karena sel ini sudah punya
+            # baris rincian -- akan membuat Postgres membatalkan SELURUH
+            # transaksi, dan setiap perintah sesudahnya ditolak dengan
+            # "InFailedSqlTransaction: current transaction is aborted". Pesan
+            # itu hanya puing: galat aslinya sudah lewat dan tidak terbaca.
+            # Savepoint menahan kerusakan di sini, sehingga selesaikan_siklus()
+            # di bawah masih dapat menyegel status siklus.
             if simpan:
-                sambungan.rollback()
+                try:
+                    with sambungan.transaction():
+                        bd.catat_rincian_gagal(
+                            sambungan, id_siklus, kode, pesan,
+                            int((time.monotonic() - mulai_sel) * 1000))
+                except Exception as e2:                 # noqa: BLE001
+                    # Alasan kegagalan pencatatan ikut dicetak, bukan ditelan.
+                    cetak(f"{'':<5}  (rincian galat {kode} tidak tercatat: "
+                          f"{type(e2).__name__}: {e2})")
 
     status = None
     if simpan:

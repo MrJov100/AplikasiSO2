@@ -5,6 +5,7 @@ Monitoring, Riwayat, Informasi. Controller hanya menerjemahkan permintaan HTTP
 menjadi panggilan layanan; tidak ada logika di sini.
 """
 import sys
+import traceback
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -230,14 +231,46 @@ def catat_koreksi(permintaan: skema.PermintaanKoreksi,
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# Galat teknis yang tidak berarti apa pun bagi admin, dipetakan ke kalimat yang
+# menyebut apa yang terjadi dan apa langkah berikutnya. "InFailedSqlTransaction:
+# current transaction is aborted" khususnya hanyalah puing: ia muncul sesudah
+# ada perintah SQL lain yang ditolak, jadi yang terbaca admin bukan sebabnya.
+PESAN_GALAT_SINKRONISASI = {
+    "InFailedSqlTransaction":
+        "Penyimpanan ditolak basis data, sehingga sisa siklus dibatalkan. "
+        "Galat aslinya tercatat di log server; riwayat sinkronisasi mungkin "
+        "tidak lengkap untuk siklus ini.",
+    "OperationalError":
+        "Sambungan ke basis data terputus saat sinkronisasi berjalan. "
+        "Periksa apakah layanan PostgreSQL masih hidup, lalu coba lagi.",
+    "UniqueViolation":
+        "Basis data menolak baris ganda saat mencatat hasil sinkronisasi. "
+        "Ini kekeliruan aplikasi, bukan kesalahan masukan — laporkan beserta "
+        "jam percobaan ini.",
+    "PenolakanAPI":
+        "Sumber data Open-Meteo menolak permintaan. Biasanya karena batas "
+        "kuota atau jaringan; tunggu beberapa menit lalu coba lagi.",
+}
+
+
 @monitoring.post("/sinkronisasi")
 def sinkronisasi_manual(s=Depends(sambungan), pengguna=admin):
     """Memicu sinkronisasi ulang; dijanjikan naskah bagi admin."""
     try:
         return l_sinkron.jalankan_manual(s, pengguna["id_pengguna"])
     except Exception as e:                                  # noqa: BLE001
-        raise HTTPException(status_code=502,
-                            detail=f"Sinkronisasi gagal: {type(e).__name__}: {e}")
+        nama = type(e).__name__
+        # Pesan teknis tetap masuk log server, tempatnya memang di sana.
+        traceback.print_exc()
+        ramah = PESAN_GALAT_SINKRONISASI.get(nama)
+        if ramah:
+            detail = ramah
+        else:
+            # Jenis galat yang belum dikenal: sebutkan apa adanya, tetapi tetap
+            # dengan kalimat pembuka yang menjelaskan tahap mana yang gagal.
+            detail = (f"Sinkronisasi dihentikan oleh galat tak terduga "
+                      f"({nama}): {e}")
+        raise HTTPException(status_code=502, detail=detail)
 
 
 # ================================================================ ControllerRiwayat

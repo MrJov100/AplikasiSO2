@@ -242,9 +242,24 @@ class LayananSinkronisasi:
         return hasil
 
     def jalankan_manual(self, s, id_pengguna):
-        """Sinkronisasi ulang atas permintaan admin (naskah Subbab 2.1.1)."""
-        hasil = sp.jalankan_siklus(s, KODE_SEL, simpan=True, pemicu="manual",
-                                   id_pengguna=id_pengguna, cetak=lambda *a: None)
+        """Sinkronisasi ulang atas permintaan admin (naskah Subbab 2.1.1).
+
+        Siklus yang gagal tetap di-commit. Kalau jalankan_siklus() sendiri yang
+        melempar -- bukan satu selnya -- maka tanpa commit di sini baris
+        SIKLUS_SINKRONISASI akan hilang saat koneksi ditutup, dan admin melihat
+        dialog "Sinkronisasi gagal" tetapi tab riwayat kosong: kegagalan yang
+        tidak meninggalkan jejak justru kegagalan yang paling perlu tercatat.
+        """
+        try:
+            hasil = sp.jalankan_siklus(s, KODE_SEL, simpan=True, pemicu="manual",
+                                       id_pengguna=id_pengguna,
+                                       cetak=lambda *a: None)
+        except Exception:                                   # noqa: BLE001
+            try:
+                s.commit()
+            except Exception:                               # noqa: BLE001
+                pass
+            raise
         s.commit()
         return hasil
 

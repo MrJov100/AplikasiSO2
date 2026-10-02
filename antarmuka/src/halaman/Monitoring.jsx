@@ -507,7 +507,11 @@ export default function Monitoring() {
                   <td>
                     {/* Lencana mengikuti STATUS, bukan jumlah_gagal: siklus
                         yang penarikannya lancar tetapi prediksinya habis gagal
-                        punya jumlah_gagal 0 dan dulu tampil hijau. */}
+                        punya jumlah_gagal 0 dan dulu tampil hijau.
+
+                        'gagal' memakai kelasnya sendiri, bukan 'buruk' yang
+                        oranye dan dipakai bersama skala kategori udara: siklus
+                        yang gagal harus terbaca sebagai peringatan merah. */}
                     <span
                       className={`lencana ${
                         s.status === "berhasil"
@@ -516,7 +520,7 @@ export default function Monitoring() {
                             ? "abu"
                             : s.status === "sebagian"
                               ? "sedang"
-                              : "buruk"
+                              : "gagal"
                       }`}
                     >
                       {s.status}

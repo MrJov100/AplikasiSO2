@@ -298,6 +298,49 @@ def tutup_rincian(sambungan, id_sinkronisasi, waktu_terakhir, masuk, diperbarui,
             "status": status, "pesan": pesan, "durasi": durasi})
 
 
+SQL_RINCIAN_GAGAL = """
+UPDATE sinkronisasi_lokasi sl
+SET    status      = 'gagal',
+       pesan_galat = %(pesan)s,
+       durasi_ms   = %(durasi)s
+FROM   lokasi l
+WHERE  l.id_lokasi = sl.id_lokasi
+  AND  l.kode_sel  = %(kode)s
+  AND  sl.id_siklus = %(id_siklus)s
+RETURNING sl.id_sinkronisasi
+"""
+
+
+def catat_rincian_gagal(sambungan, id_siklus, kode_sel, pesan, durasi):
+    """Catat satu sel yang gagal ditarik, di luar savepoint sel tersebut.
+
+    Dicoba UPDATE lebih dulu, baru INSERT. Sel yang gagal SESUDAH
+    buka_rincian() biasanya kehilangan baris rinciannya bersama savepoint,
+    tetapi tidak selalu -- dan INSERT buta pada baris yang masih ada akan
+    ditolak kekangan unik (id_siklus, id_lokasi). Pesan dipotong agar galat
+    berantai yang panjang tidak ikut menolak perintahnya.
+    """
+    pesan = (pesan or "")[:500]
+    with sambungan.cursor() as k:
+        k.execute(SQL_RINCIAN_GAGAL, {"id_siklus": id_siklus, "kode": kode_sel,
+                                      "pesan": pesan, "durasi": durasi})
+        if k.fetchone():
+            return
+
+    # Belum ada baris rincian untuk sel ini: sel gagal sebelum buka_rincian(),
+    # misalnya saat penarikan Open-Meteo yang belum menyentuh basis data.
+    with sambungan.cursor() as k:
+        k.execute(SQL_RINCIAN, {"id_siklus": id_siklus, "kode": kode_sel,
+                                "waktu_terakhir": None, "status": "gagal",
+                                "pesan": pesan})
+        baris = k.fetchone()
+    if baris:
+        with sambungan.cursor() as k:
+            k.execute("UPDATE sinkronisasi_lokasi SET durasi_ms = %(durasi)s "
+                      "WHERE id_sinkronisasi = %(id)s",
+                      {"durasi": durasi, "id": baris["id_sinkronisasi"]})
+
+
 def status_tarikan(berhasil, gagal):
     """Status langkah penarikan saja, dihitung dari jumlah sel."""
     return "berhasil" if gagal == 0 else "gagal" if berhasil == 0 else "sebagian"
