@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 .venv/
 model_portabel/
+node_modules/
+antarmuka/dist/
+antarmuka/.firebase/
+.vscode/
