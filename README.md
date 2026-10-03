@@ -11,24 +11,26 @@ langsung ke Open-Meteo).
 
 Setelah irisan ini terbukti, barulah FastAPI dan penjadwal dibangun di atasnya.
 
+(Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned) ; (& "c:\Penyimpanan Utama\Dekstop\C.Database1\AplikasiSO2\.venv\Scripts\Activate.ps1")
+
 ## Isi folder
 
-| Berkas | Fungsi |
-|---|---|
-| `konfigurasi.py` | membaca `.env`; konstanta Tabel 2.1; pemetaan nama kolom basis data ke nama fitur model |
-| `model.py` | memuat berkas `.joblib`, menyandikan arah angin, menyusun vektor fitur, menjalankan stacking. Fungsinya disalin apa adanya dari `ModulInferensiFIX.ipynb` supaya angkanya identik |
-| `basis_data.py` | membaca tiga pengamatan terakhir, menulis prediksi dengan kebijakan upsert |
-| `konversi_model.py` | konversi sekali jalan berkas Colab menjadi berkas portabel |
-| `uji_koneksi.py` | pemeriksaan awal: versi pustaka, berkas model, koneksi, hak akses |
-| `jalankan_prediksi.py` | program utama |
-| `uji_bandingkan.py` | membandingkan jalur basis data dengan jalur Open-Meteo |
-| `penarikan.py` | penarikan Open-Meteo dengan percobaan ulang dan jeda menggandakan |
-| `validasi.py` | lima lapis validasi, ambang dibaca dari `ambang_anomali.json` |
-| `segarkan_pengamatan.py` | satu siklus sinkronisasi: tarik, validasi, upsert |
-| `isi_nilai_aktual.py` | isi `nilai_aktual` pada PREDIKSI, laporkan ketelitian operasional |
-| `penjadwal.py` | penjadwal per jam yang merangkai ketiga langkah |
-| `buat_admin.py` | membuat akun admin pertama |
-| `api/` | lapisan web FastAPI: skema, repositori, layanan, controller |
+| Berkas                   | Fungsi                                                                                                                                                                            |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `konfigurasi.py`         | membaca `.env`; konstanta Tabel 2.1; pemetaan nama kolom basis data ke nama fitur model                                                                                           |
+| `model.py`               | memuat berkas `.joblib`, menyandikan arah angin, menyusun vektor fitur, menjalankan stacking. Fungsinya disalin apa adanya dari `ModulInferensiFIX.ipynb` supaya angkanya identik |
+| `basis_data.py`          | membaca tiga pengamatan terakhir, menulis prediksi dengan kebijakan upsert                                                                                                        |
+| `konversi_model.py`      | konversi sekali jalan berkas Colab menjadi berkas portabel                                                                                                                        |
+| `uji_koneksi.py`         | pemeriksaan awal: versi pustaka, berkas model, koneksi, hak akses                                                                                                                 |
+| `jalankan_prediksi.py`   | program utama                                                                                                                                                                     |
+| `uji_bandingkan.py`      | membandingkan jalur basis data dengan jalur Open-Meteo                                                                                                                            |
+| `penarikan.py`           | penarikan Open-Meteo dengan percobaan ulang dan jeda menggandakan                                                                                                                 |
+| `validasi.py`            | lima lapis validasi, ambang dibaca dari `ambang_anomali.json`                                                                                                                     |
+| `segarkan_pengamatan.py` | satu siklus sinkronisasi: tarik, validasi, upsert                                                                                                                                 |
+| `isi_nilai_aktual.py`    | isi `nilai_aktual` pada PREDIKSI, laporkan ketelitian operasional                                                                                                                 |
+| `penjadwal.py`           | penjadwal per jam yang merangkai ketiga langkah                                                                                                                                   |
+| `buat_admin.py`          | membuat akun admin pertama                                                                                                                                                        |
+| `api/`                   | lapisan web FastAPI: skema, repositori, layanan, controller                                                                                                                       |
 
 ---
 
@@ -315,30 +317,30 @@ Saat start, kesepuluh model dimuat sekali ke memori — bukan tiap permintaan.
 
 **Enam controller sesuai Class Diagram:**
 
-| Controller | Awalan | Akses |
-|---|---|---|
-| Autentikasi | `/api/auth` | publik |
-| Prediksi | `/api/prediksi` | publik |
+| Controller  | Awalan             | Akses  |
+| ----------- | ------------------ | ------ |
+| Autentikasi | `/api/auth`        | publik |
+| Prediksi    | `/api/prediksi`    | publik |
 | Visualisasi | `/api/visualisasi` | publik |
-| Informasi | `/api/informasi` | publik |
-| Monitoring | `/api/monitoring` | admin |
-| Riwayat | `/api/riwayat` | admin |
+| Informasi   | `/api/informasi`   | publik |
+| Monitoring  | `/api/monitoring`  | admin  |
+| Riwayat     | `/api/riwayat`     | admin  |
 
 ### 17. Jalankan antarmuka React
 
 Sembilan halaman sudah lengkap di `antarmuka/`:
 
-| Halaman | Jalur | Akses |
-|---|---|---|
-| Beranda | `/` | publik |
-| Prediksi SO₂ | `/prediksi` | publik |
+| Halaman             | Jalur          | Akses  |
+| ------------------- | -------------- | ------ |
+| Beranda             | `/`            | publik |
+| Prediksi SO₂        | `/prediksi`    | publik |
 | Visualisasi Riwayat | `/visualisasi` | publik |
-| Informasi Lokasi | `/lokasi` | publik |
-| FAQ | `/faq` | publik |
-| Tentang | `/tentang` | publik |
-| Masuk | `/masuk` | publik |
-| Monitoring Data | `/monitoring` | admin |
-| Riwayat Prediksi | `/riwayat` | admin |
+| Informasi Lokasi    | `/lokasi`      | publik |
+| FAQ                 | `/faq`         | publik |
+| Tentang             | `/tentang`     | publik |
+| Masuk               | `/masuk`       | publik |
+| Monitoring Data     | `/monitoring`  | admin  |
+| Riwayat Prediksi    | `/riwayat`     | admin  |
 
 Saat pengembangan, dua proses berjalan berdampingan:
 

@@ -33,7 +33,6 @@ const PER_HALAMAN = 10;
 export default function RiwayatPrediksi() {
   const [lokasi, setLokasi] = useState([]);
   const [sel, setSel] = useState("");
-  const [hanyaTerisi, setHanyaTerisi] = useState(false);
   const [baris, setBaris] = useState(null);
   const [telisik, setTelisik] = useState(null);
   const [galat, setGalat] = useState(null);
@@ -54,15 +53,12 @@ export default function RiwayatPrediksi() {
   useEffect(() => {
     setBaris(null);
     setHalaman(1);
-    const q = new URLSearchParams({
-      batas: "300",
-      hanya_terisi: String(hanyaTerisi),
-    });
+    const q = new URLSearchParams({ batas: "300" });
     if (sel) q.set("kode_sel", sel);
     panggil(`/api/riwayat/prediksi?${q}`)
       .then(setBaris)
       .catch((e) => setGalat(e.message));
-  }, [sel, hanyaTerisi]);
+  }, [sel]);
 
   return (
     <>
@@ -169,18 +165,6 @@ export default function RiwayatPrediksi() {
             </option>
           ))}
         </select>
-        <label
-          className="kecil"
-          style={{ display: "flex", alignItems: "center", gap: ".35rem" }}
-        >
-          <input
-            type="checkbox"
-            checked={hanyaTerisi}
-            style={{ width: "auto" }}
-            onChange={(e) => setHanyaTerisi(e.target.checked)}
-          />
-          Hanya yang nilai sebenarnya sudah terisi
-        </label>
       </div>
 
       {!baris && !galat && <Memuat />}

@@ -1,0 +1,25 @@
+[debug] [2026-10-03T07:51:39.057Z] ----------------------------------------------------------------------
+[debug] [2026-10-03T07:51:39.059Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\jovan\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2026-10-03T07:51:39.060Z] CLI Version:   14.3.1
+[debug] [2026-10-03T07:51:39.060Z] Platform:      win32
+[debug] [2026-10-03T07:51:39.060Z] Node Version:  v20.18.0
+[debug] [2026-10-03T07:51:39.060Z] Time:          Sat Oct 03 2026 14:51:39 GMT+0700 (Western Indonesia Time)
+[debug] [2026-10-03T07:51:39.060Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-10-03T07:51:39.241Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-03T07:51:39.242Z] > authorizing via signed-in user (jovanditodana@gmail.com)
+[debug] [2026-10-03T07:51:39.242Z] [iam] checking project so2-jabodetabek-510408 for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-10-03T07:51:39.243Z] Checked if tokens are valid: true, expires at: 1791016764690
+[debug] [2026-10-03T07:51:39.244Z] Checked if tokens are valid: true, expires at: 1791016764690
+[debug] [2026-10-03T07:51:39.244Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/so2-jabodetabek-510408:testIamPermissions [none]
+[debug] [2026-10-03T07:51:39.245Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/so2-jabodetabek-510408:testIamPermissions x-goog-quota-user=projects/so2-jabodetabek-510408
+[debug] [2026-10-03T07:51:39.245Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/so2-jabodetabek-510408:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-10-03T07:51:41.390Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/so2-jabodetabek-510408:testIamPermissions 200
+[debug] [2026-10-03T07:51:41.390Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/so2-jabodetabek-510408:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-10-03T07:51:41.391Z] Checked if tokens are valid: true, expires at: 1791016764690
+[debug] [2026-10-03T07:51:41.391Z] Checked if tokens are valid: true, expires at: 1791016764690
+[debug] [2026-10-03T07:51:41.391Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/so2-jabodetabek-510408 [none]
+[debug] [2026-10-03T07:52:11.409Z] *** [apiv2] error from fetch(https://firebase.googleapis.com/v1beta1/projects/so2-jabodetabek-510408, {"headers":{},"method":"GET","signal":{}}): AbortError: The user aborted a request.
+[debug] [2026-10-03T07:52:11.409Z] Timeout reached making request to https://firebase.googleapis.com/v1beta1/projects/so2-jabodetabek-510408 (original: The user aborted a request.)
+[error] 
+[error] Error: Assertion failed: resolving hosting target of a site with no site name or target name. This should have caused an error earlier

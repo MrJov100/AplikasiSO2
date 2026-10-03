@@ -1,0 +1,12 @@
+# Daftar ini dipakai gcloud saat mengunggah kode untuk build. Berkas ini sengaja
+# dibuat terpisah: tanpanya gcloud memakai .gitignore, yang mengecualikan
+# model_portabel/ dan membuat build gagal.
+.env
+.venv/
+.git/
+.gitignore
+.vscode/
+__pycache__/
+*.pyc
+antarmuka/
+README.md
