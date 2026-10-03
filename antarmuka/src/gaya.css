@@ -360,6 +360,31 @@ td button.kecil:active:not(:disabled):not(.aktif) {
   border-color: #0f3b5c;
   color: #fff;
 }
+/* Halaman Monitoring: tab di kiri, tombol sinkronisasi terpisah di kanan. */
+.baris-monitoring {
+  justify-content: space-between;
+}
+.tab-monitoring {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.baris-kendali button.sinkron {
+  background: #2e7d4f;
+  border-color: #2e7d4f;
+  color: #fff;
+  font-weight: 600;
+}
+.baris-kendali button.sinkron:hover:not(:disabled),
+.baris-kendali button.sinkron:active:not(:disabled) {
+  background: #1f5e39;
+  border-color: #1f5e39;
+  color: #fff;
+}
+.baris-kendali button.sinkron:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 td button.kecil:focus-visible {
   outline: 2px solid var(--biru);
   outline-offset: 2px;
@@ -995,6 +1020,20 @@ button.tautan:hover {
   .baris-kendali input:not([type="checkbox"]):not([type="radio"]) {
     flex: 1 1 160px;
     min-width: 0;
+  }
+
+  /* Monitoring: tab dalam kisi 2 kolom, tombol sinkronisasi satu baris penuh. */
+  .tab-monitoring {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+  .tab-monitoring button {
+    width: 100%;
+  }
+  .baris-kendali button.sinkron {
+    width: 100%;
+    margin-top: 0.25rem;
   }
 
   /* Dialog: sedikit lebih rapat di layar kecil. */

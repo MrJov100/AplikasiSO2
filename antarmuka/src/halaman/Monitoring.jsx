@@ -240,19 +240,25 @@ export default function Monitoring() {
         </p>
       </div>
 
-      <div className="baris-kendali">
-        {TAB.map(([k, n]) => (
-          <button
-            key={k}
-            className={tab === k ? "utama" : ""}
-            onClick={() => setTab(k)}
-          >
-            {n}
-          </button>
-        ))}
-        <span style={{ flex: 1 }} />
-        <button onClick={sinkronisasiManual} disabled={sinkron?.sedang}>
-          {sinkron?.sedang ? "Menyinkronkan…" : "Sinkronisasi sekarang"}
+      <div className="baris-kendali baris-monitoring">
+        <div className="tab-monitoring">
+          {TAB.map(([k, n]) => (
+            <button
+              key={k}
+              className={tab === k ? "utama" : ""}
+              onClick={() => setTab(k)}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+        {/* Warna hijau tersendiri agar tidak tertukar dengan tombol tab. */}
+        <button
+          className="sinkron"
+          onClick={sinkronisasiManual}
+          disabled={sinkron?.sedang}
+        >
+          {sinkron?.sedang ? "Menyinkronkan…" : "⟳ Sinkronisasi sekarang"}
         </button>
       </div>
 
