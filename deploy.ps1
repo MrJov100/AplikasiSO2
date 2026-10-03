@@ -103,4 +103,4 @@ if ($Backend) {
 
 Write-Host ""
 Write-Host "Selesai." -ForegroundColor Green
-if ($Frontend) { Write-Host "Situs: https://$Proyek.web.app" }
+if ($Frontend) { Write-Host "Situs: https://selterra.web.app" }
