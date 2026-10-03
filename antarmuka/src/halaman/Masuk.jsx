@@ -65,11 +65,6 @@ export default function Masuk({ pengguna, setPengguna }) {
             {sedang ? 'Memeriksa…' : 'Masuk'}
           </button>
         </form>
-
-        <p className="kecil" style={{ marginTop: '1rem', marginBottom: 0 }}>
-          Akun dibuat lewat <code>python buat_admin.py</code>. Tabel pengguna
-          kosong sampai perintah itu dijalankan.
-        </p>
       </div>
     </>
   )
