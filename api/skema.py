@@ -73,6 +73,10 @@ class PrediksiTerkini(BaseModel):
     prediksi: Optional[Prediksi] = None
     kemutakhiran: Kemutakhiran
     so2_terakhir: Optional[float] = None
+    # Jam target prediksi sudah lewat. Dipisahkan dari kemutakhiran.mutakhir
+    # karena pengamatan dan prediksi dapat basi sendiri-sendiri: prediksi yang
+    # kedaluwarsa dapat berdampingan dengan pengamatan yang segar.
+    prediksi_basi: bool = False
     pesan: Optional[str] = None
 
 

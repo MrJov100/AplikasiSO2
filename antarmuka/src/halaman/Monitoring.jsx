@@ -233,7 +233,19 @@ export default function Monitoring() {
 
   // Siklus yang sebagian selnya gagal bukan keberhasilan penuh: ikonnya harus
   // merah agar admin menengok tab riwayat, bukan hijau yang menenangkan.
-  const sinkronGagalSebagian = (sinkron?.hasil?.gagal ?? 0) > 0;
+  //
+  // Dasarnya STATUS gabungan ketiga langkah, bukan hanya hasil.gagal — jumlah
+  // sel langkah PENARIKAN. Sampai 4 Oktober 2026 siklus dengan sepuluh sel
+  // tertarik tetapi sepuluh prediksi gagal punya hasil.gagal 0, sehingga dialog
+  // menyatakan "Sinkronisasi berhasil" dengan ikon hijau. Itu bentuk kegagalan
+  // yang sama seperti 1 Oktober 2026, dan ia sudah diperbaiki pada lencana tabel
+  // riwayat di bawah tetapi tertinggal di dialog ini.
+  const h = sinkron?.hasil;
+  const sinkronGagalSebagian = h
+    ? h.status
+      ? h.status !== "berhasil"
+      : (h.gagal ?? 0) > 0 || (h.prediksi_gagal ?? 0) > 0
+    : false;
 
   return (
     <>
@@ -271,7 +283,7 @@ export default function Monitoring() {
         <Sorot
           jenis="memuat"
           judul="Menyinkronkan data…"
-          pesan="Menarik pengamatan terbaru dari sumber untuk setiap sel. Mohon tunggu, jangan tutup halaman ini."
+          pesan="Menarik pengamatan terbaru untuk setiap sel, membentuk prediksi jam berikutnya, lalu mengisi nilai aktual. Mohon tunggu, jangan tutup halaman ini."
         />
       )}
 
@@ -279,11 +291,27 @@ export default function Monitoring() {
         <Sorot
           jenis={sinkronGagalSebagian ? "galat" : "berhasil"}
           judul={
-            sinkronGagalSebagian
-              ? "Sinkronisasi selesai sebagian"
-              : "Sinkronisasi berhasil"
+            h.status === "gagal"
+              ? "Sinkronisasi gagal"
+              : sinkronGagalSebagian
+                ? "Sinkronisasi selesai sebagian"
+                : "Sinkronisasi berhasil"
           }
-          pesan={`${sinkron.hasil.berhasil ?? "?"} sel berhasil, ${sinkron.hasil.gagal ?? "?"} gagal.`}
+          // Langkah prediksi ikut dilaporkan: tanpa itu admin tidak punya cara
+          // membedakan siklus yang membentuk prediksi baru dari siklus yang
+          // hanya menyegarkan pengamatan.
+          pesan={
+            `Pengamatan: ${h.berhasil ?? "?"} sel berhasil, ${h.gagal ?? "?"} gagal.` +
+            (h.prediksi_berhasil != null
+              ? ` Prediksi: ${h.prediksi_berhasil} berhasil, ${h.prediksi_gagal} gagal.`
+              : "") +
+            (h.aktual_terisi != null
+              ? ` Nilai aktual terisi: ${h.aktual_terisi}.`
+              : "") +
+            (h.galat_prediksi?.length
+              ? ` Contoh galat — ${h.galat_prediksi.join("; ")}`
+              : "")
+          }
           tutup={() => setSinkron(null)}
         />
       )}

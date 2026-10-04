@@ -63,6 +63,18 @@ export default function Prediksi({ admin }) {
         <>
           <Kemutakhiran data={data.kemutakhiran} />
 
+          {/* Pesan dari server dirender di sini. Sebelum 4 Oktober 2026 nilai
+              ini dikirim API tetapi dibuang halaman, sehingga satu-satunya
+              peringatan yang pernah terlihat adalah banner Kemutakhiran — dan
+              banner itu menilai kesegaran PENGAMATAN, bukan kesegaran prediksi.
+              Prediksi yang jam targetnya sudah lewat lolos tanpa tanda apa pun
+              selama pengamatannya segar. */}
+          {data.pesan && (
+            <div className="catatan ingat" style={{ marginTop: ".6rem" }}>
+              {data.pesan}
+            </div>
+          )}
+
           {!p && (
             <div className="catatan ingat" style={{ marginTop: "1rem" }}>
               Belum ada prediksi tersimpan untuk sel ini.
@@ -78,6 +90,19 @@ export default function Prediksi({ admin }) {
                 Prakiraan untuk {tanggalPanjang(p.waktu_prediksi)} pukul{" "}
                 {jam(p.waktu_prediksi, false)} WIB
               </h3>
+
+              {/* Hubungan antara kedua jam disebut eksplisit. Judul di atas
+                  adalah jam TARGET, sedangkan "Pengamatan terakhir" di tabel
+                  bawah adalah jam DATA — selalu satu jam lebih awal. Tanpa
+                  keterangan ini keduanya berdiri berdekatan tanpa penanda dan
+                  mudah terbaca sebagai jam yang sama atau sebagai selisih yang
+                  keliru. */}
+              {p.waktu_dasar && (
+                <div className="kecil">
+                  Satu jam ke depan dari pengamatan pukul{" "}
+                  {jam(p.waktu_dasar, false)} WIB.
+                </div>
+              )}
 
               <div className="sorot" style={{ margin: "1rem 0" }}>
                 <span className="angka">{angka(p.nilai_so2, 1)}</span>

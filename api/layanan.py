@@ -154,13 +154,37 @@ class LayananPrediksi:
         prediksi = self.r.terkini(s, kode_sel)
         terakhir = self.rp.terakhir(s, kode_sel)
         km = _kemutakhiran(terakhir["waktu"] if terakhir else None)
+        p = prediksi[0] if prediksi else None
+
+        # KEBASIAN PREDIKSI DIPERIKSA TERPISAH DARI KEBASIAN PENGAMATAN.
+        #
+        # Keduanya dapat basi sendiri-sendiri. Sampai 4 Oktober 2026 hanya
+        # km["mutakhir"] yang diperiksa -- yaitu kesegaran PENGAMATAN -- sehingga
+        # prediksi yang jam targetnya sudah lewat lolos tanpa peringatan apa pun
+        # selama pengamatannya segar. Itu persis keadaan yang ditinggalkan
+        # sinkronisasi manual sebelum ia menjalankan langkah prediksi: banner
+        # menyebut "Data mutakhir, pengamatan terakhir pukul 10.00" sementara
+        # kartunya menampilkan "Prakiraan untuk pukul 10.00" -- prakiraan untuk
+        # jam yang sudah lewat, padahal antarmuka menjanjikan sebaliknya.
+        basi = False
+        if p is not None and p["waktu_prediksi"] is not None:
+            basi = pd.Timestamp(p["waktu_prediksi"]) < md.jam_sekarang()
+
+        # Kebasian prediksi disebut lebih dahulu: ia keterangan tentang angka
+        # yang sedang dipandang admin, sedangkan ketertinggalan pengamatan
+        # adalah sebab yang berada satu lapis di belakangnya.
         pesan = None
-        if not km["mutakhir"]:
+        if basi:
+            pesan = ("Prediksi yang ditampilkan sudah kedaluwarsa: jam "
+                     "targetnya telah lewat. Jalankan sinkronisasi untuk "
+                     "membentuk prediksi jam berikutnya.")
+        elif not km["mutakhir"]:
             pesan = ("Data belum mutakhir, prediksi yang ditampilkan berasal "
                      "dari siklus sebelumnya.")
-        return {"prediksi": prediksi[0] if prediksi else None,
+        return {"prediksi": p,
                 "kemutakhiran": km,
                 "so2_terakhir": float(terakhir["so2"]) if terakhir else None,
+                "prediksi_basi": basi,
                 "pesan": pesan}
 
     def semua_terkini(self, s):
@@ -265,24 +289,121 @@ class LayananSinkronisasi:
     def jalankan_manual(self, s, id_pengguna):
         """Sinkronisasi ulang atas permintaan admin (naskah Subbab 2.1.1).
 
+        KETIGA LANGKAH DIJALANKAN, BUKAN HANYA PENARIKAN
+
+        Urutan dan alasannya sama dengan penjadwal.satu_siklus(); lihat docstring
+        berkas penjadwal.py. Sampai 4 Oktober 2026 fungsi ini hanya menjalankan
+        langkah 1, sehingga sinkronisasi manual menyegarkan PENGAMATAN tetapi
+        tidak pernah membentuk satu pun baris PREDIKSI. Admin yang menekan
+        "Sinkronisasi sekarang" pukul 10 mendapat dialog "berhasil", lalu membuka
+        halaman Prediksi dan masih melihat prakiraan untuk pukul 10 -- milik
+        siklus penjadwal sebelumnya -- padahal seharusnya sudah pukul 11. Jejak
+        niat itu masih tertinggal sebagai impor `jalankan_prediksi` yang tidak
+        pernah dipakai.
+
         Siklus yang gagal tetap di-commit. Kalau jalankan_siklus() sendiri yang
         melempar -- bukan satu selnya -- maka tanpa commit di sini baris
         SIKLUS_SINKRONISASI akan hilang saat koneksi ditutup, dan admin melihat
         dialog "Sinkronisasi gagal" tetapi tab riwayat kosong: kegagalan yang
         tidak meninggalkan jejak justru kegagalan yang paling perlu tercatat.
         """
+        # --- Langkah 1: segarkan pengamatan ---------------------------------
+        #
+        # segel_status=False: status akhir disetel di bawah, sesudah langkah 3.
+        # Dengan nilai bawaan True, siklus tersegel 'berhasil' di sini dan
+        # kegagalan langkah prediksi tidak akan pernah terlihat di riwayat --
+        # kekeliruan yang sudah diperbaiki di penjadwal tetapi tertinggal di
+        # jalur manual ini.
         try:
             hasil = sp.jalankan_siklus(s, KODE_SEL, simpan=True, pemicu="manual",
                                        id_pengguna=id_pengguna,
-                                       cetak=lambda *a: None)
+                                       cetak=lambda *a: None,
+                                       segel_status=False)
         except Exception:                                   # noqa: BLE001
             try:
                 s.commit()
             except Exception:                               # noqa: BLE001
                 pass
             raise
+
+        # Pengamatan di-commit tersendiri: data pengamatan berharga walaupun
+        # prediksinya gagal dibentuk, dan siklus berikutnya akan mencoba lagi.
         s.commit()
-        return hasil
+
+        id_siklus = hasil["id_siklus"]
+
+        # --- Langkah 2: bentuk prediksi -------------------------------------
+        #
+        # Tiap sel dibungkus savepoint sendiri. Satu sel yang ditolak penjaga
+        # kemutakhiran atau kekangan basis data tidak boleh membatalkan sembilan
+        # sel yang sudah berhasil, dan tanpa savepoint satu INSERT yang ditolak
+        # membuat Postgres membatalkan SELURUH transaksi -- setiap perintah
+        # sesudahnya lalu ditolak dengan "InFailedSqlTransaction", sehingga
+        # penyegelan status di bawah pun ikut gagal.
+        berhasil = gagal = 0
+        galat_prediksi = []
+        for kode in KODE_SEL:
+            try:
+                with s.transaction():
+                    h = jp.prediksi_satu_sel(s, kode)
+                    bd.simpan_prediksi(s, kode, h["waktu_prediksi"],
+                                       h["waktu_dasar"], h["id_lag"], h["hasil"],
+                                       versi_model=VERSI_MODEL)
+                berhasil += 1
+            except Exception as e:                          # noqa: BLE001
+                gagal += 1
+                if len(galat_prediksi) < 3:
+                    galat_prediksi.append(f"{kode}: {type(e).__name__}: {e}")
+        s.commit()
+
+        # --- Langkah 3: isi nilai aktual ------------------------------------
+        #
+        # Paling akhir karena langkah 1 baru saja memasukkan pengamatan untuk
+        # jam yang menjadi target prediksi siklus sebelumnya.
+        try:
+            with s.transaction():
+                terisi = len(bd.isi_nilai_aktual(s))
+        except Exception as e:                              # noqa: BLE001
+            terisi = 0
+            if len(galat_prediksi) < 3:
+                galat_prediksi.append(f"nilai aktual: {type(e).__name__}: {e}")
+        s.commit()
+
+        # --- Segel status siklus --------------------------------------------
+        #
+        # Jumlah yang dicatat tetap jumlah SEL pada langkah penarikan, supaya
+        # arti kolomnya tidak berubah bagi riwayat yang sudah ada. Yang berubah
+        # hanyalah status: 'berhasil' kini menuntut ketiga langkah lancar.
+        # Aturannya sama persis dengan penjadwal.satu_siklus().
+        if gagal == 0 and not hasil["gagal"]:
+            status = "berhasil"
+        elif berhasil == 0 and hasil["berhasil"] == 0:
+            status = "gagal"
+        elif berhasil == 0:
+            # Pengamatan masuk, tetapi tidak satu pun prediksi terbentuk.
+            # Itu kegagalan, bukan keberhasilan sebagian.
+            status = "gagal"
+        else:
+            status = "sebagian"
+
+        try:
+            with s.transaction():
+                bd.selesaikan_siklus(s, id_siklus, hasil["berhasil"],
+                                     hasil["gagal"], status)
+                bd.catat_langkah_siklus(s, id_siklus, berhasil, gagal, terisi)
+        except Exception:                                   # noqa: BLE001
+            # Status yang gagal disegel tidak boleh menghapus pengamatan dan
+            # prediksi yang sudah berhasil di-commit di atas.
+            pass
+        s.commit()
+
+        # Hasil langkah 2 dan 3 ikut dikembalikan supaya dialog Monitoring dapat
+        # melaporkan prediksi, bukan hanya jumlah sel yang tertarik. Kunci lama
+        # ('berhasil', 'gagal', 'anomali', ...) dipertahankan apa adanya agar
+        # pemakai tanggapan ini yang sudah ada tidak berubah artinya.
+        return {**hasil, "status": status, "prediksi_berhasil": berhasil,
+                "prediksi_gagal": gagal, "aktual_terisi": terisi,
+                "galat_prediksi": galat_prediksi}
 
 
 class LayananRiwayat:
