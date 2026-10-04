@@ -66,10 +66,33 @@ function PanelKoreksi({ baris, selesai, batal }) {
     alasan.trim().length >= 5 &&
     (tindakan !== "ubah_nilai" || nilaiBaru !== "");
 
+  // Tutup dengan Escape, seperti dialog Profil Admin.
+  useEffect(() => {
+    function padaTombol(e) {
+      if (e.key === "Escape" && !sedang) batal();
+    }
+    window.addEventListener("keydown", padaTombol);
+    return () => window.removeEventListener("keydown", padaTombol);
+  }, [batal, sedang]);
+
   return (
-    <tr>
-      <td colSpan={7} style={{ background: "var(--abu-muda)" }}>
-        <div style={{ maxWidth: 560 }}>
+    <div
+      className="sorot-tirai"
+      onClick={() => !sedang && batal()}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Koreksi pengamatan"
+    >
+      <div className="profil-kotak koreksi-kotak" onClick={(e) => e.stopPropagation()}>
+        <button
+          className="profil-tutup"
+          onClick={batal}
+          disabled={sedang}
+          aria-label="Tutup"
+        >
+          ×
+        </button>
+        <div>
           <h3>Koreksi pengamatan #{baris.id_pengamatan}</h3>
           <p className="kecil">
             {baris.kode_sel} · {jam(baris.waktu)} · SO₂ {angka(baris.so2)} µg/m³
@@ -157,8 +180,8 @@ function PanelKoreksi({ baris, selesai, batal }) {
             <button onClick={batal}>Batal</button>
           </div>
         </div>
-      </td>
-    </tr>
+      </div>
+    </div>
   );
 }
 
@@ -457,13 +480,9 @@ export default function Monitoring() {
                     <td>
                       <button
                         className="kecil"
-                        onClick={() =>
-                          setPilih(
-                            pilih === b.id_pengamatan ? null : b.id_pengamatan,
-                          )
-                        }
+                        onClick={() => setPilih(b.id_pengamatan)}
                       >
-                        {pilih === b.id_pengamatan ? "Tutup" : "Tinjau"}
+                        Tinjau
                       </button>
                     </td>
                   </tr>

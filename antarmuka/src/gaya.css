@@ -730,6 +730,14 @@ button.tautan:hover {
   max-height: calc(100vh - 2rem);
   overflow-y: auto;
 }
+/* Dialog koreksi pengamatan (Monitoring): memakai kotak profil, tetapi lebih
+   lebar karena memuat formulir dan catatan penjelasan. */
+.profil-kotak.koreksi-kotak {
+  max-width: 560px;
+}
+.koreksi-kotak h3 {
+  margin: 0 2rem 0.3rem 0;
+}
 .profil-tutup {
   position: absolute;
   top: 0.55rem;
