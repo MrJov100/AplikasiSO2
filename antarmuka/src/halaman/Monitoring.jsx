@@ -527,76 +527,81 @@ export default function Monitoring() {
         </div>
       )}
 
-      {data && tab === "siklus" && (() => {
-        const totalHalaman = Math.max(1, Math.ceil(data.length / PER_HALAMAN));
-        const aktif = Math.min(halaman, totalHalaman);
-        const mulai = (aktif - 1) * PER_HALAMAN;
-        const tampil = data.slice(mulai, mulai + PER_HALAMAN);
-        return (
-        <div className="kartu">
-          <p className="kecil">
-            {data.length} siklus
-            {data.length > 0 &&
-              ` · menampilkan ${mulai + 1}–${mulai + tampil.length}`}
-          </p>
-          <table>
-            <thead>
-              <tr>
-                <th>Mulai</th>
-                <th>Selesai</th>
-                <th>Pemicu</th>
-                <th>Status</th>
-                <th className="angka">Tarik ok</th>
-                <th className="angka">Tarik gagal</th>
-                <th className="angka">Prediksi ok</th>
-                <th className="angka">Prediksi gagal</th>
-                <th className="angka">Aktual terisi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tampil.map((s) => (
-                <tr key={s.id_siklus}>
-                  <td>{jam(s.waktu_mulai)}</td>
-                  <td>{jam(s.waktu_selesai)}</td>
-                  <td>{s.pemicu}</td>
-                  <td>
-                    {/* Lencana mengikuti STATUS, bukan jumlah_gagal: siklus
+      {data &&
+        tab === "siklus" &&
+        (() => {
+          const totalHalaman = Math.max(
+            1,
+            Math.ceil(data.length / PER_HALAMAN),
+          );
+          const aktif = Math.min(halaman, totalHalaman);
+          const mulai = (aktif - 1) * PER_HALAMAN;
+          const tampil = data.slice(mulai, mulai + PER_HALAMAN);
+          return (
+            <div className="kartu">
+              <p className="kecil">
+                {data.length} siklus
+                {data.length > 0 &&
+                  ` · menampilkan ${mulai + 1}–${mulai + tampil.length}`}
+              </p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Mulai</th>
+                    <th>Selesai</th>
+                    <th>Pemicu</th>
+                    <th>Status</th>
+                    <th className="angka">Tarik ok</th>
+                    <th className="angka">Tarik gagal</th>
+                    <th className="angka">Prediksi ok</th>
+                    <th className="angka">Prediksi gagal</th>
+                    <th className="angka">Aktual terisi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tampil.map((s) => (
+                    <tr key={s.id_siklus}>
+                      <td>{jam(s.waktu_mulai)}</td>
+                      <td>{jam(s.waktu_selesai)}</td>
+                      <td>{s.pemicu}</td>
+                      <td>
+                        {/* Lencana mengikuti STATUS, bukan jumlah_gagal: siklus
                         yang penarikannya lancar tetapi prediksinya habis gagal
                         punya jumlah_gagal 0 dan dulu tampil hijau.
 
                         'gagal' memakai kelasnya sendiri, bukan 'buruk' yang
                         oranye dan dipakai bersama skala kategori udara: siklus
                         yang gagal harus terbaca sebagai peringatan merah. */}
-                    <span
-                      className={`lencana ${
-                        s.status === "berhasil"
-                          ? "baik"
-                          : s.status === "berjalan"
-                            ? "abu"
-                            : s.status === "sebagian"
-                              ? "sedang"
-                              : "gagal"
-                      }`}
-                    >
-                      {s.status}
-                    </span>
-                  </td>
-                  <td className="angka">{s.jumlah_berhasil}</td>
-                  <td className="angka">{s.jumlah_gagal}</td>
-                  <td className="angka">{s.prediksi_berhasil ?? "—"}</td>
-                  <td className="angka">{s.prediksi_gagal ?? "—"}</td>
-                  <td className="angka">{s.aktual_terisi ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {data.length === 0 && (
-            <p className="kecil">Belum ada siklus tercatat.</p>
-          )}
-          <Halaman aktif={aktif} total={totalHalaman} onUbah={setHalaman} />
-        </div>
-        );
-      })()}
+                        <span
+                          className={`lencana ${
+                            s.status === "berhasil"
+                              ? "baik"
+                              : s.status === "berjalan"
+                                ? "abu"
+                                : s.status === "sebagian"
+                                  ? "sedang"
+                                  : "gagal"
+                          }`}
+                        >
+                          {s.status}
+                        </span>
+                      </td>
+                      <td className="angka">{s.jumlah_berhasil}</td>
+                      <td className="angka">{s.jumlah_gagal}</td>
+                      <td className="angka">{s.prediksi_berhasil ?? "—"}</td>
+                      <td className="angka">{s.prediksi_gagal ?? "—"}</td>
+                      <td className="angka">{s.aktual_terisi ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {data.length === 0 && (
+                <p className="kecil">Belum ada siklus tercatat.</p>
+              )}
+              <Halaman aktif={aktif} total={totalHalaman} onUbah={setHalaman} />
+            </div>
+          );
+        })()}
     </>
   );
 }
