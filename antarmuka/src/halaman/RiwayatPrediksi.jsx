@@ -4,26 +4,6 @@ import { Lencana, Memuat, Galat, Halaman } from "../komponen/Umum.jsx";
 
 // Halaman Riwayat Prediksi (admin). Menampilkan prediksi yang pernah dibentuk
 // beserta nilai sebenarnya yang menyusul, dan ketelitian operasionalnya.
-// Ringkas daftar jam menjadi rentang: [0,1,2,5,6] -> "00-02, 05-06".
-// Daftar 24 angka mentah sulit dibaca sekilas, sedangkan yang perlu terlihat
-// adalah ada-tidaknya lubang, bukan tiap angkanya.
-function rentangJam(daftar) {
-  if (!daftar || !daftar.length) return "—";
-  const dua = (n) => String(n).padStart(2, "0");
-  const bagian = [];
-  let awal = daftar[0],
-    akhir = daftar[0];
-  for (const j of daftar.slice(1)) {
-    if (j === akhir + 1) {
-      akhir = j;
-      continue;
-    }
-    bagian.push(awal === akhir ? dua(awal) : `${dua(awal)}-${dua(akhir)}`);
-    awal = akhir = j;
-  }
-  bagian.push(awal === akhir ? dua(awal) : `${dua(awal)}-${dua(akhir)}`);
-  return bagian.join(", ");
-}
 
 // Jumlah baris tabel per halaman.
 const PER_HALAMAN = 10;
@@ -37,6 +17,7 @@ export default function RiwayatPrediksi() {
   const [telisik, setTelisik] = useState(null);
   const [galat, setGalat] = useState(null);
   const [halaman, setHalaman] = useState(1);
+  const [info, setInfo] = useState(false);
 
   useEffect(() => {
     panggil("/api/informasi/lokasi")
@@ -137,20 +118,35 @@ export default function RiwayatPrediksi() {
                     <b>{angka(telisik.skill_score, 3)}</b>
                     {telisik.skill_score <= 0 &&
                       " — pada rentang ini stacking belum melampaui persistensi."}
+                    <span
+                      className="info-ikon"
+                      onMouseEnter={() => setInfo(true)}
+                      onMouseLeave={() => setInfo(false)}
+                    >
+                      <span
+                        className="tombol"
+                        tabIndex={0}
+                        role="button"
+                        aria-label="Penjelasan skill score"
+                        aria-expanded={info}
+                        onClick={() => setInfo((v) => !v)}
+                        onFocus={() => setInfo(true)}
+                        onBlur={() => setInfo(false)}
+                      >
+                        i
+                      </span>
+                      {info && (
+                        <span className="balon" role="tooltip">
+                          Skill score = 1 − (RMSE stacking ÷ RMSE persistensi)².
+                          Persistensi berarti menebak nilai jam depan sama
+                          dengan nilai jam ini. Di atas 0: stacking lebih akurat
+                          daripada tebakan itu; 1: sempurna; 0 atau negatif:
+                          tidak lebih baik.
+                        </span>
+                      )}
+                    </span>
                   </p>
                 )}
-              <p className="kecil" style={{ marginTop: ".4rem" }}>
-                Jam tercakup: <b>{rentangJam(telisik.jam_tercakup)}</b>
-                {telisik.jam_belum_tercakup?.length > 0 && (
-                  <>
-                    {" "}
-                    · belum tercakup:{" "}
-                    <b style={{ color: "var(--buruk)" }}>
-                      {rentangJam(telisik.jam_belum_tercakup)}
-                    </b>
-                  </>
-                )}
-              </p>
             </>
           )}
         </div>

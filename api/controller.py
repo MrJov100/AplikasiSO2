@@ -4,6 +4,7 @@ Satu APIRouter per kelas controller: Autentikasi, Prediksi, Visualisasi,
 Monitoring, Riwayat, Informasi. Controller hanya menerjemahkan permintaan HTTP
 menjadi panggilan layanan; tidak ada logika di sini.
 """
+import json
 import sys
 import traceback
 from pathlib import Path
@@ -15,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import basis_data as bd                                   # noqa: E402
 from api import keamanan, layanan, skema                  # noqa: E402
 from konfigurasi import (AMBANG_KATEGORI, BAKU_MUTU_1_JAM,  # noqa: E402
-                         BATAS_KEMUTAKHIRAN_JAM, VERSI_MODEL)
+                         BATAS_KEMUTAKHIRAN_JAM, FOLDER_MODEL, VERSI_MODEL)
 
 
 def sambungan():
@@ -137,6 +138,38 @@ def daftar_lokasi(s=Depends(sambungan)):
     return l_lokasi.daftar(s)
 
 
+# Nama tampilan, satuan, dan kolom model tiap variabel. SO2 selalu dipakai
+# (nilai historisnya adalah dasar prediksi); variabel meteorologi hanya yang
+# lolos seleksi mutual information pada sel yang bersangkutan.
+_VARIABEL = [
+    ("so2", "Konsentrasi sulfur dioksida", "µg/m³"),
+    ("temperature_2m", "Suhu udara pada 2 m", "°C"),
+    ("relative_humidity_2m", "Kelembapan relatif pada 2 m", "%"),
+    ("dew_point_2m", "Titik embun pada 2 m", "°C"),
+    ("precipitation", "Curah hujan", "mm"),
+    ("surface_pressure", "Tekanan permukaan", "hPa"),
+    ("cloud_cover", "Tutupan awan total", "%"),
+    ("wind_speed_10m", "Kecepatan angin pada 10 m", "m/s"),
+    ("wind_direction_10m", "Arah angin pada 10 m", "derajat"),
+]
+
+
+def _variabel_terpilih():
+    """Variabel masukan yang benar-benar dipakai, berikut sel yang memakainya."""
+    berkas = FOLDER_MODEL / "metadata_model.json"
+    meta = json.loads(berkas.read_text(encoding="utf-8"))
+    sel_semua = sorted(meta)
+    hasil = []
+    for kolom, nama, satuan in _VARIABEL:
+        if kolom == "so2":
+            sel = sel_semua
+        else:
+            sel = [k for k in sel_semua if kolom in meta[k]["variabel_terpilih"]]
+        if sel:
+            hasil.append({"nama": nama, "satuan": satuan, "sel": sel})
+    return hasil
+
+
 @informasi.get("/tentang")
 def tentang():
     """Informasi umum aplikasi: sumber data, baku mutu, ambang kategori, dan variabel model."""
@@ -156,16 +189,16 @@ def tentang():
                            + [{"batas_atas": None, "nama": "Sangat Buruk"}],
         "versi_model": VERSI_MODEL,
         "batas_kemutakhiran_jam": BATAS_KEMUTAKHIRAN_JAM,
-        "variabel": [
-            {"nama": "Konsentrasi sulfur dioksida", "satuan": "µg/m³"},
-            {"nama": "Suhu udara pada 2 m", "satuan": "°C"},
-            {"nama": "Kelembapan relatif pada 2 m", "satuan": "%"},
-            {"nama": "Titik embun pada 2 m", "satuan": "°C"},
-            {"nama": "Curah hujan", "satuan": "mm"},
-            {"nama": "Tekanan permukaan", "satuan": "hPa"},
-            {"nama": "Tutupan awan total", "satuan": "%"},
-            {"nama": "Kecepatan angin pada 10 m", "satuan": "m/s"},
-            {"nama": "Arah angin pada 10 m", "satuan": "derajat"}],
+        "variabel": _variabel_terpilih(),
+        "peneliti": {
+            "nama": "Jovandi Todana", "nim": "535230027",
+            "program_studi": "Teknik Informatika", "peminatan": "Data Science",
+            "institusi": "Fakultas Teknologi Informasi, Universitas Tarumanagara"},
+        "pembimbing": [
+            {"peran": "Dosen pembimbing utama",
+             "nama": "Teny Handhayani, S.Kom., M.Kom., Ph.D."},
+            {"peran": "Dosen pembimbing pendamping",
+             "nama": "Henoch Juli Christanto, S.Kom., M.Kom."}],
     }
 
 

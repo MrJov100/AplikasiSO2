@@ -427,6 +427,50 @@ label.medan select {
   font-size: 0.82rem;
   color: var(--abu);
 }
+/* Ikon info dengan balon penjelasan; tampil saat hover, fokus, atau diketuk. */
+.info-ikon {
+  position: relative;
+  display: inline-block;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+.info-ikon > span.tombol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  border: 1px solid var(--abu);
+  color: var(--abu);
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: help;
+  user-select: none;
+}
+.info-ikon > span.tombol:hover,
+.info-ikon > span.tombol:focus-visible {
+  color: var(--biru);
+  border-color: var(--biru);
+  outline: none;
+}
+.info-ikon .balon {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.4rem);
+  transform: translateX(-50%);
+  width: min(20rem, 80vw);
+  padding: 0.6rem 0.75rem;
+  background: var(--teks);
+  color: var(--putih);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.45;
+  text-align: left;
+  box-shadow: var(--bayang);
+  z-index: 20;
+}
 .tengah {
   text-align: center;
   padding: 2.5rem 1rem;
@@ -1040,6 +1084,41 @@ button.tautan:hover {
   .sorot-kotak,
   .profil-kotak {
     padding: 1.4rem 1.15rem 1.2rem;
+  }
+}
+
+/* Beranda di HP: 10 kartu lokasi dalam 2 kolom x 5 baris agar terlihat utuh. */
+@media (max-width: 600px) {
+  .petak {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+  .petak .sel-kartu {
+    padding: 0.6rem 0.65rem;
+    margin-bottom: 0;
+  }
+  .petak .sel-kartu .kode {
+    font-size: 0.66rem;
+  }
+  .petak .sel-kartu .nama {
+    font-size: 0.82rem;
+    margin: 0.05rem 0 0.3rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+  .petak .sel-kartu .nilai {
+    font-size: 1.3rem;
+  }
+  .petak .sel-kartu .satuan {
+    font-size: 0.68rem;
+  }
+  .petak .sel-kartu .lencana {
+    font-size: 0.66rem;
+    padding: 0.1rem 0.4rem;
+  }
+  .petak .sel-kartu .jam {
+    font-size: 0.68rem;
+    margin-top: 0.3rem;
   }
 }
 
