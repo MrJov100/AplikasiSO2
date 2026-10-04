@@ -1,6 +1,9 @@
 import { Fragment, useEffect, useState } from "react";
 import { panggil, angka, jam } from "../api.js";
-import { Memuat, Galat, Sorot } from "../komponen/Umum.jsx";
+import { Memuat, Galat, Sorot, Halaman } from "../komponen/Umum.jsx";
+
+// Jumlah baris riwayat sinkronisasi per halaman.
+const PER_HALAMAN = 10;
 
 // Kolom pengamatan yang boleh dikoreksi admin, beserta labelnya.
 const KOLOM_BOLEH = [
@@ -169,6 +172,7 @@ export default function Monitoring() {
   const [sinkron, setSinkron] = useState(null);
   const [muatUlang, setMuatUlang] = useState(0);
   const [peringatan, setPeringatan] = useState(null);
+  const [halaman, setHalaman] = useState(1);
 
   // Endpoint yang dimuat untuk tiap tab.
   const JALUR = {
@@ -182,6 +186,7 @@ export default function Monitoring() {
     setData(null);
     setGalat(null);
     setPilih(null);
+    setHalaman(1);
     panggil(JALUR[tab])
       .then(setData)
       .catch((e) => setGalat(e.message));
@@ -494,8 +499,18 @@ export default function Monitoring() {
         </div>
       )}
 
-      {data && tab === "siklus" && (
+      {data && tab === "siklus" && (() => {
+        const totalHalaman = Math.max(1, Math.ceil(data.length / PER_HALAMAN));
+        const aktif = Math.min(halaman, totalHalaman);
+        const mulai = (aktif - 1) * PER_HALAMAN;
+        const tampil = data.slice(mulai, mulai + PER_HALAMAN);
+        return (
         <div className="kartu">
+          <p className="kecil">
+            {data.length} siklus
+            {data.length > 0 &&
+              ` · menampilkan ${mulai + 1}–${mulai + tampil.length}`}
+          </p>
           <table>
             <thead>
               <tr>
@@ -511,7 +526,7 @@ export default function Monitoring() {
               </tr>
             </thead>
             <tbody>
-              {data.map((s) => (
+              {tampil.map((s) => (
                 <tr key={s.id_siklus}>
                   <td>{jam(s.waktu_mulai)}</td>
                   <td>{jam(s.waktu_selesai)}</td>
@@ -550,8 +565,10 @@ export default function Monitoring() {
           {data.length === 0 && (
             <p className="kecil">Belum ada siklus tercatat.</p>
           )}
+          <Halaman aktif={aktif} total={totalHalaman} onUbah={setHalaman} />
         </div>
-      )}
+        );
+      })()}
     </>
   );
 }
