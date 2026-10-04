@@ -30,9 +30,7 @@ export default function Tentang() {
     <>
       <div className="kepala">
         <h1>Tentang Aplikasi</h1>
-        <p>
-          {data.nama} · versi model {data.versi_model}
-        </p>
+        <p>Sumber data, ambang kategori, dan variabel masukan model prediksi SO₂</p>
       </div>
 
       <div className="kartu">
