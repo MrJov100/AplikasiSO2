@@ -210,35 +210,6 @@ class PenggunaRepository:
                 SET    terakhir_masuk = (now() AT TIME ZONE 'Asia/Jakarta')
                 WHERE  id_pengguna = %s""", (id_pengguna,))
 
-    def ubah_nama(self, s, id_pengguna, nama_lengkap):
-        """Mengganti nama lengkap pengguna dan mengembalikan profil barunya."""
-        with s.cursor() as k:
-            k.execute("""
-                UPDATE pengguna SET nama_lengkap = %s
-                WHERE  id_pengguna = %s
-                RETURNING id_pengguna, username, nama_lengkap, peran, aktif,
-                          terakhir_masuk, dibuat_pada""",
-                      (nama_lengkap, id_pengguna))
-            return k.fetchone()
-
-    def ubah_username(self, s, id_pengguna, username):
-        """Mengganti username; pemanggil wajib memastikan belum terpakai."""
-        with s.cursor() as k:
-            k.execute("""
-                UPDATE pengguna SET username = %s
-                WHERE  id_pengguna = %s
-                RETURNING id_pengguna, username, nama_lengkap, peran, aktif,
-                          terakhir_masuk, dibuat_pada""",
-                      (username, id_pengguna))
-            return k.fetchone()
-
-    def ubah_kata_sandi(self, s, id_pengguna, kata_sandi_hash):
-        """Hanya hash yang masuk ke basis data; kata sandi polos tidak disimpan."""
-        with s.cursor() as k:
-            k.execute("""
-                UPDATE pengguna SET kata_sandi_hash = %s
-                WHERE  id_pengguna = %s""", (kata_sandi_hash, id_pengguna))
-
 
 class SiklusSinkronisasiRepository:
     """Akses tabel siklus_sinkronisasi."""

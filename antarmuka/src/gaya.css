@@ -791,38 +791,6 @@ button.tautan:hover {
   color: var(--teks);
 }
 
-.profil-borang h3 {
-  margin: 0 0 0.9rem;
-}
-.profil-borang label.medan small {
-  display: block;
-  margin-top: 0.25rem;
-}
-.profil-borang .catatan {
-  margin-bottom: 0.9rem;
-}
-
-.profil-aksi {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  margin-top: 1.1rem;
-}
-.profil-aksi button {
-  padding: 0.45rem 0.9rem;
-}
-/* Tombol pilihan pada rincian profil disusun ke bawah selebar dialog, bukan
-   berjajar: ketiganya setara dan lebih gampang dituju begitu. Baris
-   Simpan/Batal di dalam borang tetap berjajar. */
-.profil-aksi.tegak {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.5rem;
-}
-.profil-aksi.tegak button {
-  width: 100%;
-  text-align: center;
-}
 @media (prefers-reduced-motion: reduce) {
   .profil-kotak {
     animation: none;

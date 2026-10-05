@@ -139,31 +139,6 @@ class ProfilPengguna(BaseModel):
     dibuat_pada: datetime
 
 
-class PermintaanUbahNama(BaseModel):
-    """Isian untuk mengganti nama lengkap admin."""
-    nama_lengkap: str
-
-
-class PermintaanUbahUsername(BaseModel):
-    """Isian untuk mengganti username; kata sandi sebagai penegasan."""
-    username_baru: str
-    kata_sandi: str
-
-
-class TanggapanUbahUsername(BaseModel):
-    """Username ikut tersimpan di dalam token, jadi token baru dikembalikan
-    supaya sesi yang berjalan tidak memakai identitas yang sudah usang."""
-    profil: ProfilPengguna
-    akses_token: str
-    jenis_token: str = "bearer"
-
-
-class PermintaanUbahKataSandi(BaseModel):
-    """Isian untuk mengganti kata sandi."""
-    kata_sandi_lama: str
-    kata_sandi_baru: str
-
-
 class PermintaanKoreksi(BaseModel):
     """Isian tindakan koreksi admin atas satu pengamatan."""
     id_pengamatan: int

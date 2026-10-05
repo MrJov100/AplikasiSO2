@@ -2,7 +2,6 @@
 
 Layanan memanggil repositori dan modul pendukung; tidak menulis SQL sendiri.
 """
-import re
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -65,76 +64,14 @@ class LayananAutentikasi:
 
     # ---------- Modul Profil Admin ----------
     # Rincian profil dibaca ulang dari basis data, bukan dari isi token: token
-    # hanya menyimpan nama saat masuk, sehingga nama yang baru diganti akan
-    # tertinggal bila dibaca dari sana.
+    # hanya menyimpan nama saat masuk, sehingga keadaan terkini akun lebih
+    # dapat dipercaya bila dibaca langsung dari basis data.
     def profil(self, s, id_pengguna):
         """Membaca profil terkini admin dari basis data, tanpa hash kata sandi."""
         p = self.r.cari_id(s, id_pengguna)
         if not p:
             raise ValueError("Akun tidak ditemukan.")
         return self._tanpa_hash(p)
-
-    def ubah_nama(self, s, id_pengguna, nama_lengkap):
-        """Mengganti nama lengkap admin setelah memvalidasi panjangnya."""
-        nama = (nama_lengkap or "").strip()
-        if len(nama) < 3:
-            raise ValueError("Nama lengkap minimal tiga karakter.")
-        if len(nama) > 100:
-            raise ValueError("Nama lengkap maksimal seratus karakter.")
-        p = self.r.ubah_nama(s, id_pengguna, nama)
-        if not p:
-            raise ValueError("Akun tidak ditemukan.")
-        s.commit()
-        return self._tanpa_hash(p)
-
-    def ubah_username(self, s, id_pengguna, username_baru, kata_sandi):
-        """Mengganti username. Kata sandi diminta sebagai penegasan karena
-        username adalah identitas untuk masuk."""
-        p = self.r.cari_id(s, id_pengguna)
-        if not p:
-            raise ValueError("Akun tidak ditemukan.")
-        if not keamanan.periksa_kata_sandi(kata_sandi, p["kata_sandi_hash"]):
-            raise ValueError("Kata sandi salah.")
-
-        # Kekangan ck_pengguna_username menuntut huruf kecil dan minimal empat
-        # karakter; dinormalkan dan diperiksa di sini supaya pesan galatnya
-        # jelas, bukan berupa galat kekangan dari basis data.
-        baru = (username_baru or "").strip().lower()
-        if len(baru) < 4:
-            raise ValueError("Username minimal empat karakter.")
-        if len(baru) > 50:
-            raise ValueError("Username maksimal lima puluh karakter.")
-        if not re.fullmatch(r"[a-z0-9._-]+", baru):
-            raise ValueError("Username hanya boleh huruf kecil, angka, titik, "
-                             "garis bawah, dan garis datar.")
-        if baru == p["username"]:
-            raise ValueError("Username baru sama dengan yang sekarang.")
-
-        lain = self.r.cari_username(s, baru)
-        if lain:
-            raise ValueError("Username sudah dipakai akun lain.")
-
-        hasil = self.r.ubah_username(s, id_pengguna, baru)
-        s.commit()
-        return self._tanpa_hash(hasil)
-
-    def ubah_kata_sandi(self, s, id_pengguna, kata_sandi_lama, kata_sandi_baru):
-        """Mengganti kata sandi admin setelah memeriksa kata sandi lama dan aturan kata sandi baru."""
-        p = self.r.cari_id(s, id_pengguna)
-        if not p:
-            raise ValueError("Akun tidak ditemukan.")
-        # Kata sandi lama wajib benar supaya sesi yang tertinggal terbuka pada
-        # komputer bersama tidak bisa dipakai mengambil alih akun.
-        if not keamanan.periksa_kata_sandi(kata_sandi_lama, p["kata_sandi_hash"]):
-            raise ValueError("Kata sandi lama salah.")
-        # Batas delapan karakter sama dengan buat_admin.py.
-        if len(kata_sandi_baru or "") < 8:
-            raise ValueError("Kata sandi baru minimal delapan karakter.")
-        if kata_sandi_baru == kata_sandi_lama:
-            raise ValueError("Kata sandi baru harus berbeda dari yang lama.")
-        self.r.ubah_kata_sandi(s, id_pengguna,
-                               keamanan.hash_kata_sandi(kata_sandi_baru))
-        s.commit()
 
     @staticmethod
     def _tanpa_hash(p):

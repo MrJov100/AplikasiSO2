@@ -59,47 +59,6 @@ def saya(s=Depends(sambungan), pengguna=admin):
         raise HTTPException(status_code=401, detail=str(e))
 
 
-@autentikasi.patch("/profil", response_model=skema.ProfilPengguna)
-def ubah_profil(permintaan: skema.PermintaanUbahNama,
-                s=Depends(sambungan), pengguna=admin):
-    """Admin mengganti nama lengkapnya sendiri."""
-    try:
-        return l_auth.ubah_nama(s, pengguna["id_pengguna"],
-                                permintaan.nama_lengkap)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@autentikasi.patch("/username", response_model=skema.TanggapanUbahUsername)
-def ubah_username(permintaan: skema.PermintaanUbahUsername,
-                  s=Depends(sambungan), pengguna=admin):
-    """Admin mengganti username-nya sendiri; kata sandi wajib benar.
-
-    Token lama memuat username lama, maka token baru diterbitkan sekalian.
-    """
-    try:
-        profil = l_auth.ubah_username(s, pengguna["id_pengguna"],
-                                      permintaan.username_baru,
-                                      permintaan.kata_sandi)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return {"profil": profil, "jenis_token": "bearer",
-            "akses_token": keamanan.buat_token(profil)}
-
-
-@autentikasi.patch("/kata-sandi")
-def ubah_kata_sandi(permintaan: skema.PermintaanUbahKataSandi,
-                    s=Depends(sambungan), pengguna=admin):
-    """Admin mengganti kata sandinya sendiri; kata sandi lama wajib benar."""
-    try:
-        l_auth.ubah_kata_sandi(s, pengguna["id_pengguna"],
-                               permintaan.kata_sandi_lama,
-                               permintaan.kata_sandi_baru)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return {"pesan": "Kata sandi berhasil diganti."}
-
-
 # =============================================================== ControllerPrediksi
 prediksi = APIRouter(prefix="/api/prediksi", tags=["Prediksi"])
 
