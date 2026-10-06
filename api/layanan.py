@@ -125,11 +125,19 @@ class LayananPrediksi:
                 "pesan": pesan}
 
     def semua_terkini(self, s):
-        """Prediksi terbaru seluruh sel, masing-masing dengan status kemutakhiran data."""
+        """Prediksi terbaru seluruh sel, masing-masing dengan status kemutakhiran data.
+
+        Kedua kueri dijalankan sekali, bukan sekali per sel: sampai 6 Oktober
+        2026 pengamatan terakhir dibaca di dalam perulangan, sehingga satu
+        permintaan beranda menjadi sebelas kueri (pola N+1). Endpoint ini
+        terbuka tanpa autentikasi, jadi biaya per permintaan di sini sekaligus
+        menentukan seberapa murah ia dibanjiri.
+        """
         prediksi = self.r.terkini(s, None)
+        terakhir_per_sel = self.rp.terakhir_semua_sel(s)
         hasil = []
         for p in prediksi:
-            terakhir = self.rp.terakhir(s, p["kode_sel"])
+            terakhir = terakhir_per_sel.get(p["kode_sel"])
             hasil.append({**p, **{"kemutakhiran":
                                   _kemutakhiran(terakhir["waktu"] if terakhir else None)}})
         return hasil

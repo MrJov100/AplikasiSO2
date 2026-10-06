@@ -4,20 +4,96 @@ Inilah jalur utama menurut naskah Subbab 2.1 — "sistem membaca tiga pengamatan
 terakhir dari basis data". Penarikan langsung ke Open-Meteo hanya jaring
 pengaman, dan tidak dipakai di berkas ini.
 """
+import os
 from contextlib import contextmanager
 
 import pandas as pd
 import psycopg
 from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 
 from konfigurasi import KOLOM_DB_KE_MODEL, LAGS, PG, VERSI_MODEL
 
 
 @contextmanager
 def koneksi():
-    """Buka satu koneksi ke basis data dan pastikan ditutup kembali."""
+    """Buka satu koneksi ke basis data dan pastikan ditutup kembali.
+
+    Dipakai skrip baris perintah dan penjadwal: prosesnya berumur pendek atau
+    berjalan sejam sekali, jadi biaya membuka koneksi tidak berarti di sana.
+    Lapisan API memakai kolam koneksi di bawah, bukan fungsi ini.
+    """
     with psycopg.connect(**PG, row_factory=dict_row) as sambungan:
         yield sambungan
+
+
+# ---------------------------------------------------------------- kolam koneksi
+#
+# API membuka koneksi pada SETIAP permintaan HTTP, dan membuka koneksi
+# PostgreSQL baru dari nol berbiaya ~34 ms pada mesin pengembangan — hampir
+# seluruhnya salaman TCP, autentikasi, dan fork proses backend, bukan kerja
+# berguna; kueri yang dilayani indeks sendiri hanya sepersekian milidetik.
+# Biaya itu sekaligus menjadi plafon: ~29 permintaan/detik per worker.
+#
+# Yang lebih berbahaya adalah batasnya. Tanpa kolam, jumlah koneksi serentak
+# ditentukan oleh jumlah permintaan serentak, sehingga banjir permintaan ke satu
+# endpoint publik dapat menembus plafon koneksi PostgreSQL. Begitu plafon itu
+# tembus, yang mati bukan hanya endpoint yang dibanjiri: login admin dan siklus
+# penjadwal pun ditolak "FATAL: too many connections". MAKS_KOLAM menjadikan
+# jumlah koneksi dibatasi aplikasi, bukan oleh perilaku penyerang.
+#
+# PLAFONNYA 20, BUKAN 100. Peran so2_app dibuat dengan rolconnlimit = 20
+# (periksa: SELECT rolconnlimit FROM pg_roles WHERE rolname='so2_app'), jadi
+# max_connections 100 pada postgresql.conf bukan angka yang menentukan — yang
+# berlaku adalah yang terkecil di antara keduanya. Karena itu kolam dibatasi 8,
+# bukan 10: sisanya untuk penjadwal, skrip baris perintah, dan sesi pgAdmin yang
+# masing-masing memakai koneksi() tersendiri di luar kolam. Kalau MAKS_KOLAM
+# dinaikkan lewat .env, naikkan rolconnlimit lebih dahulu.
+MAKS_KOLAM = int(os.getenv("MAKS_KOLAM_DB", "8"))
+MIN_KOLAM = int(os.getenv("MIN_KOLAM_DB", "2"))
+
+_kolam: ConnectionPool | None = None
+
+
+def buka_kolam():
+    """Menyiapkan kolam koneksi; dipanggil sekali saat API mulai."""
+    global _kolam
+    if _kolam is None:
+        _kolam = ConnectionPool(
+            kwargs={**PG, "row_factory": dict_row},
+            min_size=MIN_KOLAM, max_size=MAKS_KOLAM,
+            # Permintaan tidak menunggu selamanya saat kolam penuh: lebih baik
+            # ditolak cepat dengan 503 daripada menumpuk sampai worker habis.
+            timeout=5.0,
+            open=True)
+        _kolam.wait(timeout=10.0)
+    return _kolam
+
+
+def tutup_kolam():
+    """Menutup kolam koneksi saat API berhenti."""
+    global _kolam
+    if _kolam is not None:
+        _kolam.close()
+        _kolam = None
+
+
+@contextmanager
+def koneksi_kolam():
+    """Satu koneksi pinjaman dari kolam, dikembalikan setelah dipakai.
+
+    Koneksi dari kolam dipakai ulang, jadi transaksi permintaan sebelumnya tidak
+    boleh menetes ke permintaan berikutnya: rollback di akhir membuang perubahan
+    yang belum di-commit. Jalur yang memang menulis (koreksi, sinkronisasi)
+    sudah memanggil commit sendiri, sehingga rollback di sini tidak
+    membatalkannya.
+    """
+    kolam = buka_kolam()
+    with kolam.connection() as sambungan:
+        try:
+            yield sambungan
+        finally:
+            sambungan.rollback()
 
 
 # Kekangan uk_pengamatan_lokasi_waktu (id_lokasi, waktu) sekaligus menjadi indeks

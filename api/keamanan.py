@@ -11,6 +11,8 @@ import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 # Kunci penanda token. Untuk penerapan sungguhan wajib diisi lewat .env;
 # nilai bawaan hanya supaya aplikasi tetap jalan saat pengembangan.
@@ -19,6 +21,21 @@ ALGORITMA = "HS256"
 MASA_BERLAKU_JAM = int(os.getenv("MASA_TOKEN_JAM", "12"))
 
 skema_oauth = OAuth2PasswordBearer(tokenUrl="api/auth/login", auto_error=False)
+
+# Pembatas laju login tinggal di sini, bukan di api/main.py, supaya controller
+# dapat memakainya tanpa mengimpor main — main sendiri mengimpor controller,
+# jadi impor baliknya akan memutar.
+BATAS_MASUK = os.getenv("BATAS_LAJU_MASUK", "10/minute")
+BATAS_UMUM = os.getenv("BATAS_LAJU_UMUM", "60/minute")
+
+# Satu objek dipakai seluruh aplikasi: app.state.limiter di main.py menunjuk ke
+# objek ini, dan dekorator @batas_masuk() mendaftar padanya juga.
+limiter = Limiter(key_func=get_remote_address, default_limits=[BATAS_UMUM])
+
+
+def batas_masuk():
+    """Dekorator pembatas laju untuk endpoint login."""
+    return limiter.limit(BATAS_MASUK)
 
 
 def hash_kata_sandi(kata_sandi: str) -> str:

@@ -51,6 +51,39 @@ class PengamatanRepository:
                 ORDER  BY p.waktu DESC LIMIT 1""", (kode_sel,))
             return k.fetchone()
 
+    def terakhir_semua_sel(self, s):
+        """Pengamatan terbaru SETIAP sel sekaligus, berkunci kode sel.
+
+        Menggantikan pemanggilan terakhir() sekali per sel di dalam perulangan
+        pada LayananPrediksi.semua_terkini() — sebelas kueri untuk satu
+        permintaan beranda, pola N+1.
+
+        LATERAL, BUKAN DISTINCT ON. Keduanya menghasilkan baris yang sama, tetapi
+        rencana eksekusinya berbeda jauh. DISTINCT ON (l.kode_sel) ... ORDER BY
+        l.kode_sel, p.waktu DESC tidak dapat memakai uk_pengamatan_lokasi_waktu
+        karena urutan yang dimintanya diawali kode_sel dari tabel lain: Postgres
+        memilih Seq Scan atas seluruh 365 ribu baris pengamatan lalu mengurutkan
+        di luar memori (external merge, ~12 MB) hanya untuk mengembalikan sepuluh
+        baris — 303 ms, yaitu LEBIH LAMBAT daripada sebelas kueri yang
+        digantinya.
+
+        Bentuk LATERAL di bawah meminta sepuluh pencarian terpisah, masing-masing
+        ORDER BY p.waktu DESC LIMIT 1 dengan id_lokasi tetap — persis bentuk yang
+        dilayani indeks itu. Rencananya Index Scan Backward, 0,2 ms.
+        """
+        with s.cursor() as k:
+            k.execute("""
+                SELECT l.kode_sel, t.waktu, t.so2
+                FROM   lokasi l
+                CROSS  JOIN LATERAL (
+                           SELECT p.waktu, p.so2
+                           FROM   pengamatan p
+                           WHERE  p.id_lokasi = l.id_lokasi
+                             AND  p.status <> 'dikecualikan'
+                           ORDER  BY p.waktu DESC
+                           LIMIT  1) t""")
+            return {b["kode_sel"]: b for b in k.fetchall()}
+
     def ringkasan_per_sel(self, s):
         """Waktu data terakhir, jumlah pengamatan, dan jumlah anomali tiap sel."""
         with s.cursor() as k:

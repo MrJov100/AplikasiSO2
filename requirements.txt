@@ -7,6 +7,7 @@ scikit-learn==1.6.1
 xgboost==3.4.1
 joblib
 psycopg[binary]==3.2.*
+psycopg_pool==3.2.*
 python-dotenv
 requests
 apscheduler==3.10.*
@@ -16,3 +17,4 @@ fastapi==0.115.*
 uvicorn[standard]==0.32.*
 pyjwt==2.10.*
 bcrypt==4.2.*
+slowapi==0.1.*

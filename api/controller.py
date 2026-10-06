@@ -9,7 +9,7 @@ import sys
 import traceback
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -20,8 +20,12 @@ from konfigurasi import (AMBANG_KATEGORI, BAKU_MUTU_1_JAM,  # noqa: E402
 
 
 def sambungan():
-    """Satu koneksi basis data per permintaan."""
-    with bd.koneksi() as s:
+    """Satu koneksi basis data per permintaan, dipinjam dari kolam.
+
+    Memakai kolam, bukan psycopg.connect() baru tiap permintaan: lihat komentar
+    MAKS_KOLAM di basis_data.py untuk biaya dan batas yang mendasarinya.
+    """
+    with bd.koneksi_kolam() as s:
         yield s
 
 
@@ -39,8 +43,14 @@ l_riwayat = layanan.LayananRiwayat()
 autentikasi = APIRouter(prefix="/api/auth", tags=["Autentikasi"])
 
 
+# Batas login lebih ketat daripada batas umum. bcrypt sengaja lambat, jadi
+# setiap percobaan memakan CPU server: membanjiri /login bukan hanya peluang
+# menerka kata sandi, tetapi sekaligus jalur menghabiskan sumber daya. Batasnya
+# dibaca dari keamanan.BATAS_MASUK lewat limiter yang sama.
 @autentikasi.post("/login", response_model=skema.Token)
-def masuk(permintaan: skema.PermintaanMasuk, s=Depends(sambungan)):
+@keamanan.batas_masuk()
+def masuk(request: Request, permintaan: skema.PermintaanMasuk,
+          s=Depends(sambungan)):
     """Endpoint login: memverifikasi username dan kata sandi, lalu menerbitkan token akses."""
     p = l_auth.masuk(s, permintaan.username, permintaan.kata_sandi)
     if not p:
