@@ -103,9 +103,20 @@ class Ketelitian(BaseModel):
     rmse_xgboost: Optional[float] = None
     mae_random_forest: Optional[float] = None
     rmse_random_forest: Optional[float] = None
+    # Persistensi sezaman: nilai_aktual prediksi jam sebelumnya, yaitu potret
+    # dari generasi yang sama dengan nilai_aktual baris ini. Inilah pembanding
+    # resmi dan dasar skill_score.
     mae_persistensi: Optional[float] = None
     rmse_persistensi: Optional[float] = None
     skill_score: Optional[float] = None
+    # Persistensi cara lama: dibaca dari pengamatan.so2 yang sudah direvisi
+    # arsip. Disertakan sebagai pembanding terbuka, bukan untuk dilaporkan
+    # sebagai ketelitian sistem.
+    mae_persistensi_arsip: Optional[float] = None
+    rmse_persistensi_arsip: Optional[float] = None
+    skill_score_arsip: Optional[float] = None
+    # Baris yang belum punya prediksi jam sebelumnya, dikeluarkan dari metrik.
+    n_tanpa_pendahulu: int = 0
     # Cakupan evaluasi — lihat LayananRiwayat.ketelitian.
     jam_awal: Optional[datetime] = None
     jam_akhir: Optional[datetime] = None

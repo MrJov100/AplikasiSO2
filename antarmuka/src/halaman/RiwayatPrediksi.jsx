@@ -69,6 +69,14 @@ export default function RiwayatPrediksi() {
                 {jam(telisik.jam_awal)} – {jam(telisik.jam_akhir)}. Prediksi
                 dari versi model uji dan jam berstatus <i>dikecualikan</i> tidak
                 diikutkan.
+                {telisik.n_tanpa_pendahulu > 0 && (
+                  <>
+                    {" "}
+                    {telisik.n_tanpa_pendahulu} prediksi lain dikeluarkan karena
+                    belum ada prediksi jam sebelumnya sebagai pembanding
+                    persistensi.
+                  </>
+                )}
               </p>
               <table>
                 <thead>
@@ -141,7 +149,9 @@ export default function RiwayatPrediksi() {
                           Persistensi berarti menebak nilai jam depan sama
                           dengan nilai jam ini. Di atas 0: stacking lebih akurat
                           daripada tebakan itu; 1: sempurna; 0 atau negatif:
-                          tidak lebih baik.
+                          tidak lebih baik. Nilai persistensi diambil dari nilai
+                          sebenarnya prediksi jam sebelumnya, sehingga baseline
+                          dan model dinilai atas data dari generasi yang sama.
                         </span>
                       )}
                     </span>

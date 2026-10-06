@@ -376,6 +376,11 @@ class LayananRiwayat:
         hasil["jam_belum_tercakup"] = [j for j in range(24)
                                        if j not in set(hasil["jam_tercakup"])]
 
+        # Baris yang belum punya prediksi jam sebelumnya tidak dapat dibandingkan
+        # terhadap persistensi sezaman, sehingga dikeluarkan dari SELURUH metrik
+        # agar model dan baseline dinilai atas himpunan baris yang sama.
+        hasil["n_tanpa_pendahulu"] = int(k["n_tanpa_pendahulu"] or 0)
+
         for nama, kunci in (("mae_stacking", "mae_stacking"),
                             ("rmse_stacking", "rmse_stacking"),
                             ("mae_xgboost", "mae_xgboost"),
@@ -383,9 +388,18 @@ class LayananRiwayat:
                             ("mae_random_forest", "mae_rf"),
                             ("rmse_random_forest", "rmse_rf"),
                             ("mae_persistensi", "mae_persistensi"),
-                            ("rmse_persistensi", "rmse_persistensi")):
+                            ("rmse_persistensi", "rmse_persistensi"),
+                            ("mae_persistensi_arsip", "mae_persistensi_arsip"),
+                            ("rmse_persistensi_arsip", "rmse_persistensi_arsip")):
             hasil[nama] = float(k[kunci]) if k[kunci] is not None else None
+
+        # Definisi Bab 3: rasio MSE, bukan rasio RMSE.
         if hasil.get("rmse_persistensi"):
-            # Definisi Bab 3: rasio MSE, bukan rasio RMSE.
             hasil["skill_score"] = 1 - (hasil["rmse_stacking"] / hasil["rmse_persistensi"]) ** 2
+        # Angka cara lama disertakan sebagai pembanding terbuka. Selisih kedua
+        # skill score inilah besar pengaruh revisi arsip terhadap baseline;
+        # sebelumnya besaran itu hanya dapat diduga, tidak diukur.
+        if hasil.get("rmse_persistensi_arsip"):
+            hasil["skill_score_arsip"] = (
+                1 - (hasil["rmse_stacking"] / hasil["rmse_persistensi_arsip"]) ** 2)
         return hasil

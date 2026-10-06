@@ -39,13 +39,21 @@ def cetak_ketelitian(sambungan):
         print("Belum ada prediksi yang nilai aktualnya terisi.")
         return
 
-    print(f"\nKetelitian operasional atas {k['n']} prediksi")
-    print("(pengamatan berstatus 'dikecualikan' tidak diikutkan)\n")
-    print(f"  {'model':<18}{'MAE':>10}{'RMSE':>10}")
-    print(f"  {'Stacking':<18}{k['mae_stacking']:>10}{k['rmse_stacking']:>10}")
-    print(f"  {'XGBoost':<18}{k['mae_xgboost']:>10}{k['rmse_xgboost']:>10}")
-    print(f"  {'Random Forest':<18}{k['mae_rf']:>10}{k['rmse_rf']:>10}")
-    print(f"  {'Persistensi':<18}{k['mae_persistensi']:>10}{k['rmse_persistensi']:>10}")
+    jam_berbeda = int(k["jam_berbeda"] or 0)
+    print(f"\nKetelitian operasional atas {k['n']} prediksi pada {jam_berbeda} jam berbeda")
+    print(f"rentang {k['jam_awal']} - {k['jam_akhir']}")
+    print("(pengamatan berstatus 'dikecualikan' tidak diikutkan)")
+    if int(k["n_tanpa_pendahulu"] or 0):
+        print(f"{k['n_tanpa_pendahulu']} baris dikeluarkan: belum ada prediksi jam sebelumnya "
+              "sebagai pembanding persistensi")
+    print()
+    print(f"  {'model':<24}{'MAE':>10}{'RMSE':>10}")
+    print(f"  {'Stacking':<24}{k['mae_stacking']:>10}{k['rmse_stacking']:>10}")
+    print(f"  {'XGBoost':<24}{k['mae_xgboost']:>10}{k['rmse_xgboost']:>10}")
+    print(f"  {'Random Forest':<24}{k['mae_rf']:>10}{k['rmse_rf']:>10}")
+    print(f"  {'Persistensi':<24}{k['mae_persistensi']:>10}{k['rmse_persistensi']:>10}")
+    print(f"  {'Persistensi (arsip)':<24}{k['mae_persistensi_arsip']:>10}"
+          f"{k['rmse_persistensi_arsip']:>10}")
 
     # Skill score terhadap baseline persistensi, seperti pada Bab 3 naskah.
     #
@@ -56,8 +64,23 @@ def cetak_ketelitian(sambungan):
     if k["rmse_persistensi"] and float(k["rmse_persistensi"]) > 0:
         skill = 1 - (float(k["rmse_stacking"]) / float(k["rmse_persistensi"])) ** 2
         print(f"\n  Skill score stacking terhadap persistensi: {skill:.4f}")
-    if int(k["n"]) < 100:
-        print("\n  Peringatan: jumlahnya masih terlalu sedikit untuk disimpulkan.")
+    if k["rmse_persistensi_arsip"] and float(k["rmse_persistensi_arsip"]) > 0:
+        skill_a = 1 - (float(k["rmse_stacking"]) / float(k["rmse_persistensi_arsip"])) ** 2
+        print(f"  Skill score bila baseline dibaca dari arsip terevisi: {skill_a:.4f}")
+        print("  (angka kedua terlalu tinggi; baris persistensi arsip dinilai terhadap"
+              " potret\n   nilai aktual yang berbeda generasi, sehingga baselinenya terhukum)")
+
+    # Ambang kecukupan dihitung dari JAM BERBEDA, bukan dari jumlah baris.
+    # Satu siklus menghasilkan sepuluh baris sekaligus, dan kesepuluh sel grid
+    # pada jam yang sama berbagi keadaan cuaca serta sumber lag yang sama
+    # sehingga galatnya berkorelasi kuat. Ambang lama "n < 100" karena itu
+    # terlalu longgar: n = 100 hanya berarti sepuluh jam operasi.
+    if jam_berbeda < 30:
+        print(f"\n  Peringatan: baru {jam_berbeda} jam berbeda. Sasaran 30-50 jam berbeda"
+              " dengan cakupan siang dan malam sebelum angkanya disimpulkan.")
+    kosong = [j for j in range(24) if j not in set(k["jam_tercakup"] or [])]
+    if kosong:
+        print(f"  Jam yang belum pernah tersampel: {kosong}")
 
 
 def main():

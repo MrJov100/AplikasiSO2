@@ -484,28 +484,75 @@ FROM   prediksi WHERE nilai_aktual IS NULL
 # diambil lewat kunci asing id_pengamatan_t1 — itulah gunanya menyimpan ketiga
 # kunci asing lag pada tabel PREDIKSI.
 SQL_KETELITIAN = """
-SELECT count(*)                                                            AS n,
-       round(avg(abs(p.nilai_aktual - p.nilai_so2)), 4)                    AS mae_stacking,
-       round(sqrt(avg(power(p.nilai_aktual - p.nilai_so2, 2))), 4)         AS rmse_stacking,
-       round(avg(abs(p.nilai_aktual - p.nilai_xgboost)), 4)                AS mae_xgboost,
-       round(sqrt(avg(power(p.nilai_aktual - p.nilai_xgboost, 2))), 4)     AS rmse_xgboost,
-       round(avg(abs(p.nilai_aktual - p.nilai_random_forest)), 4)          AS mae_rf,
-       round(sqrt(avg(power(p.nilai_aktual - p.nilai_random_forest, 2))), 4) AS rmse_rf,
-       round(avg(abs(p.nilai_aktual - t1.so2)), 4)                         AS mae_persistensi,
-       round(sqrt(avg(power(p.nilai_aktual - t1.so2, 2))), 4)              AS rmse_persistensi,
+-- Baseline persistensi diambil dari nilai_aktual prediksi JAM SEBELUMNYA pada
+-- sel yang sama (pp), bukan dari kolom so2 baris pengamatan t-1 (t1).
+--
+-- Alasannya kesetaraan pembandingan. Kolom nilai_aktual diisi SEKALI saja, satu
+-- jam sesudah jam targetnya, lalu tidak pernah disegarkan -- lihat penjaga
+-- "p.nilai_aktual IS NULL" pada SQL_ISI_AKTUAL. Kolom pengamatan.so2 sebaliknya
+-- terus diperbarui di tempat selama arsip Open-Meteo masih merevisi jam itu.
+-- Membandingkan nilai_aktual (potret awal) terhadap t1.so2 (sudah direvisi
+-- menjadi analisis berhari-hari kemudian) membuat galat persistensi ikut memuat
+-- revisi arsip, bukan hanya perubahan antarjam. Itu MENGHUKUM baseline dan
+-- membuat skill score model terlalu tinggi.
+--
+-- nilai_aktual milik prediksi jam sebelumnya diambil dengan cara yang sama
+-- persis pada jam yang berbeda, sehingga kedua sisi berasal dari generasi
+-- potret yang sama dan pembandingannya setara.
+--
+-- Cara lama tetap dihitung sebagai ..._arsip PADA HIMPUNAN BARIS YANG SAMA,
+-- supaya besar pengaruhnya terukur dan dapat dilaporkan di Bab 4 alih-alih
+-- hanya dinyatakan sebagai dugaan.
+--
+-- Seluruh agregat memakai FILTER yang sama sehingga model dan baseline dinilai
+-- atas himpunan baris yang identik; tanpa itu skill score membandingkan dua
+-- himpunan yang berbeda. Baris yang belum punya pendahulu dihitung terpisah
+-- sebagai n_tanpa_pendahulu, tidak disembunyikan.
+SELECT count(*) FILTER (WHERE pp.nilai_aktual IS NOT NULL)                   AS n,
+       count(*) FILTER (WHERE pp.nilai_aktual IS NULL)                       AS n_tanpa_pendahulu,
+
+       round(avg(abs(p.nilai_aktual - p.nilai_so2))
+             FILTER (WHERE pp.nilai_aktual IS NOT NULL), 4)                  AS mae_stacking,
+       round(sqrt(avg(power(p.nilai_aktual - p.nilai_so2, 2))
+             FILTER (WHERE pp.nilai_aktual IS NOT NULL)), 4)                 AS rmse_stacking,
+       round(avg(abs(p.nilai_aktual - p.nilai_xgboost))
+             FILTER (WHERE pp.nilai_aktual IS NOT NULL), 4)                  AS mae_xgboost,
+       round(sqrt(avg(power(p.nilai_aktual - p.nilai_xgboost, 2))
+             FILTER (WHERE pp.nilai_aktual IS NOT NULL)), 4)                 AS rmse_xgboost,
+       round(avg(abs(p.nilai_aktual - p.nilai_random_forest))
+             FILTER (WHERE pp.nilai_aktual IS NOT NULL), 4)                  AS mae_rf,
+       round(sqrt(avg(power(p.nilai_aktual - p.nilai_random_forest, 2))
+             FILTER (WHERE pp.nilai_aktual IS NOT NULL)), 4)                 AS rmse_rf,
+
+       round(avg(abs(p.nilai_aktual - pp.nilai_aktual))
+             FILTER (WHERE pp.nilai_aktual IS NOT NULL), 4)                  AS mae_persistensi,
+       round(sqrt(avg(power(p.nilai_aktual - pp.nilai_aktual, 2))
+             FILTER (WHERE pp.nilai_aktual IS NOT NULL)), 4)                 AS rmse_persistensi,
+
+       round(avg(abs(p.nilai_aktual - t1.so2))
+             FILTER (WHERE pp.nilai_aktual IS NOT NULL), 4)                  AS mae_persistensi_arsip,
+       round(sqrt(avg(power(p.nilai_aktual - t1.so2, 2))
+             FILTER (WHERE pp.nilai_aktual IS NOT NULL)), 4)                 AS rmse_persistensi_arsip,
+
        -- Cakupan. MAE dan RMSE adalah rerata berjalan: nilainya bergeser tiap
        -- kali satu baris bertambah. Tanpa keterangan rentang dan jam yang
        -- tercakup, angka yang dikutip Bab 4 tidak dapat direproduksi, dan
        -- lubang cakupan jam (mis. dini hari belum pernah tersampel) tidak
        -- terlihat sama sekali dari angka tunggal.
-       min(p.waktu_prediksi)                                               AS jam_awal,
-       max(p.waktu_prediksi)                                               AS jam_akhir,
-       count(DISTINCT p.waktu_prediksi)                                    AS jam_berbeda,
+       min(p.waktu_prediksi) FILTER (WHERE pp.nilai_aktual IS NOT NULL)      AS jam_awal,
+       max(p.waktu_prediksi) FILTER (WHERE pp.nilai_aktual IS NOT NULL)      AS jam_akhir,
+       count(DISTINCT p.waktu_prediksi)
+             FILTER (WHERE pp.nilai_aktual IS NOT NULL)                      AS jam_berbeda,
        array_agg(DISTINCT extract(hour from p.waktu_prediksi)::int
-                 ORDER BY extract(hour from p.waktu_prediksi)::int)        AS jam_tercakup
+                 ORDER BY extract(hour from p.waktu_prediksi)::int)
+             FILTER (WHERE pp.nilai_aktual IS NOT NULL)                      AS jam_tercakup
 FROM   prediksi p
 JOIN   pengamatan o  ON o.id_lokasi = p.id_lokasi AND o.waktu = p.waktu_prediksi
 JOIN   pengamatan t1 ON t1.id_pengamatan = p.id_pengamatan_t1
+LEFT JOIN prediksi pp
+       ON pp.id_lokasi      = p.id_lokasi
+      AND pp.waktu_prediksi = p.waktu_prediksi - INTERVAL '1 hour'
+      AND pp.versi_model    = p.versi_model
 WHERE  p.nilai_aktual IS NOT NULL
   AND  o.status <> 'dikecualikan'
   AND  p.versi_model = %(versi)s
