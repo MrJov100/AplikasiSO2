@@ -1,4 +1,4 @@
-"""Tujuh repositori — lapisan Repositori pada Class Diagram (Gambar 4a).
+"""Tujuh repositori — lapisan Repositori.
 
 Hanya repositori yang menyentuh SQL. Kelas layanan memanggil repositori, tidak
 pernah menulis kueri sendiri.

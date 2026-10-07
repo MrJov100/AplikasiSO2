@@ -1,6 +1,6 @@
-"""Enam controller — lapisan Kendali pada Class Diagram (Gambar 4b).
+"""Enam controller — lapisan Kendali.
 
-Satu APIRouter per kelas controller: Autentikasi, Prediksi, Visualisasi,
+Satu APIRouter per controller: Autentikasi, Prediksi, Visualisasi,
 Monitoring, Riwayat, Informasi. Controller hanya menerjemahkan permintaan HTTP
 menjadi panggilan layanan; tidak ada logika di sini.
 """

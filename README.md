@@ -42,13 +42,13 @@ Cloud Scheduler ── tiap jam, menit ke-10 ──▶ Cloud Run Job  so2-siklus
                                               └─▶ Open-Meteo (internet)
 ```
 
-| Bagian       | Di komputer lokal              | Di produksi                          |
-| ------------ | ------------------------------ | ------------------------------------ |
-| Antarmuka    | `npm run dev` (porta 5173)     | Firebase Hosting, situs `selterra`   |
-| API          | `uvicorn` (porta 8000)         | Cloud Run service `so2-api`          |
-| Penjadwal    | `python penjadwal.py`          | Cloud Run Job + Cloud Scheduler      |
-| Basis data   | PostgreSQL lokal               | Cloud SQL `so2-db` (IP privat)       |
-| Rahasia      | berkas `.env`                  | Secret Manager                       |
+| Bagian     | Di komputer lokal          | Di produksi                        |
+| ---------- | -------------------------- | ---------------------------------- |
+| Antarmuka  | `npm run dev` (porta 5173) | Firebase Hosting, situs `selterra` |
+| API        | `uvicorn` (porta 8000)     | Cloud Run service `so2-api`        |
+| Penjadwal  | `python penjadwal.py`      | Cloud Run Job + Cloud Scheduler    |
+| Basis data | PostgreSQL lokal           | Cloud SQL `so2-db` (IP privat)     |
+| Rahasia    | berkas `.env`              | Secret Manager                     |
 
 Frontend memanggil alamat relatif `/api/...`. Firebase Hosting meneruskan semua
 permintaan `/api/**` ke Cloud Run, sehingga tidak ada persoalan lintas asal (CORS).
@@ -57,29 +57,29 @@ permintaan `/api/**` ke Cloud Run, sehingga tidak ada persoalan lintas asal (COR
 
 ## 2. Isi folder
 
-| Berkas                   | Fungsi                                                                                                                                                                            |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `konfigurasi.py`         | membaca `.env`; konstanta Tabel 2.1; pemetaan nama kolom basis data ke nama fitur model                                                                                           |
-| `model.py`               | memuat berkas `.joblib`, menyandikan arah angin, menyusun vektor fitur, menjalankan stacking. Fungsinya disalin apa adanya dari `ModulInferensiFIX.ipynb` supaya angkanya identik |
-| `basis_data.py`          | membaca tiga pengamatan terakhir, menulis prediksi dengan kebijakan upsert, mencatat siklus sinkronisasi                                                                          |
-| `konversi_model.py`      | konversi sekali jalan berkas Colab menjadi berkas portabel                                                                                                                        |
-| `uji_koneksi.py`         | pemeriksaan awal: versi pustaka, berkas model, koneksi, hak akses                                                                                                                 |
-| `jalankan_prediksi.py`   | membentuk prediksi satu atau semua sel                                                                                                                                            |
-| `uji_bandingkan.py`      | membandingkan jalur basis data dengan jalur Open-Meteo                                                                                                                            |
-| `penarikan.py`           | penarikan Open-Meteo dengan percobaan ulang dan jeda menggandakan                                                                                                                 |
-| `validasi.py`            | lima lapis validasi, ambang dibaca dari `ambang_anomali.json`                                                                                                                     |
-| `segarkan_pengamatan.py` | satu siklus sinkronisasi: tarik, validasi, upsert                                                                                                                                 |
-| `isi_nilai_aktual.py`    | isi `nilai_aktual` pada PREDIKSI, laporkan ketelitian operasional                                                                                                                 |
-| `penjadwal.py`           | penjadwal per jam yang merangkai ketiga langkah                                                                                                                                   |
-| `buat_admin.py`          | membuat akun admin pertama                                                                                                                                                        |
-| `migrasi_kolom_langkah.py` | menambah kolom rincian langkah pada SIKLUS_SINKRONISASI (perlu hak pemilik tabel)                                                                                               |
-| `api/`                   | lapisan web FastAPI: skema, repositori, layanan, controller                                                                                                                       |
-| `antarmuka/`             | antarmuka React (Vite); `firebase.json` dan `.firebaserc` untuk Firebase Hosting                                                                                                  |
-| `Dockerfile`             | citra container untuk Cloud Run (API dan job siklus memakai citra yang sama)                                                                                                      |
-| `deploy.ps1`             | skrip satu perintah untuk men-deploy frontend dan backend                                                                                                                         |
-| `.dockerignore`, `.gcloudignore` | berkas yang tidak ikut masuk ke citra dan ke unggahan build                                                                                                               |
-| `model_portabel/`        | **tidak ada di Git.** Salinan 21 berkas model (`Gxx_bundel.joblib`, `Gxx_xgb.ubj`, `metadata_model.json`) yang dimasukkan ke citra Docker                                         |
-| `data/ambang_anomali.json` | ambang penandaan anomali yang dibaca `validasi.py` di container                                                                                                                 |
+| Berkas                           | Fungsi                                                                                                                                                                            |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `konfigurasi.py`                 | membaca `.env`; konstanta Tabel 2.1; pemetaan nama kolom basis data ke nama fitur model                                                                                           |
+| `model.py`                       | memuat berkas `.joblib`, menyandikan arah angin, menyusun vektor fitur, menjalankan stacking. Fungsinya disalin apa adanya dari `ModulInferensiFIX.ipynb` supaya angkanya identik |
+| `basis_data.py`                  | membaca tiga pengamatan terakhir, menulis prediksi dengan kebijakan upsert, mencatat siklus sinkronisasi                                                                          |
+| `konversi_model.py`              | konversi sekali jalan berkas Colab menjadi berkas portabel                                                                                                                        |
+| `uji_koneksi.py`                 | pemeriksaan awal: versi pustaka, berkas model, koneksi, hak akses                                                                                                                 |
+| `jalankan_prediksi.py`           | membentuk prediksi satu atau semua sel                                                                                                                                            |
+| `uji_bandingkan.py`              | membandingkan jalur basis data dengan jalur Open-Meteo                                                                                                                            |
+| `penarikan.py`                   | penarikan Open-Meteo dengan percobaan ulang dan jeda menggandakan                                                                                                                 |
+| `validasi.py`                    | lima lapis validasi, ambang dibaca dari `ambang_anomali.json`                                                                                                                     |
+| `segarkan_pengamatan.py`         | satu siklus sinkronisasi: tarik, validasi, upsert                                                                                                                                 |
+| `isi_nilai_aktual.py`            | isi `nilai_aktual` pada PREDIKSI, laporkan ketelitian operasional                                                                                                                 |
+| `penjadwal.py`                   | penjadwal per jam yang merangkai ketiga langkah                                                                                                                                   |
+| `buat_admin.py`                  | membuat akun admin pertama                                                                                                                                                        |
+| `migrasi_kolom_langkah.py`       | menambah kolom rincian langkah pada SIKLUS_SINKRONISASI (perlu hak pemilik tabel)                                                                                                 |
+| `api/`                           | lapisan web FastAPI: skema, repositori, layanan, controller                                                                                                                       |
+| `antarmuka/`                     | antarmuka React (Vite); `firebase.json` dan `.firebaserc` untuk Firebase Hosting                                                                                                  |
+| `Dockerfile`                     | citra container untuk Cloud Run (API dan job siklus memakai citra yang sama)                                                                                                      |
+| `deploy.ps1`                     | skrip satu perintah untuk men-deploy frontend dan backend                                                                                                                         |
+| `.dockerignore`, `.gcloudignore` | berkas yang tidak ikut masuk ke citra dan ke unggahan build                                                                                                                       |
+| `model_portabel/`                | **tidak ada di Git.** Salinan 21 berkas model (`Gxx_bundel.joblib`, `Gxx_xgb.ubj`, `metadata_model.json`) yang dimasukkan ke citra Docker                                         |
+| `data/ambang_anomali.json`       | ambang penandaan anomali yang dibaca `validasi.py` di container                                                                                                                   |
 
 ---
 
@@ -354,7 +354,7 @@ uvicorn api.main:app --host 0.0.0.0 --port 8000
 
 Saat start, kesepuluh model dimuat sekali ke memori — bukan tiap permintaan.
 
-**Enam controller sesuai Class Diagram:**
+**Enam controller:**
 
 | Controller  | Awalan             | Akses  |
 | ----------- | ------------------ | ------ |
@@ -416,18 +416,18 @@ tidak perlu diserahkan bersama naskah; `package.json` sudah mengikat versinya.
 
 ### 4.1 Sumber daya
 
-| Sumber daya          | Nama / nilai                                                       |
-| -------------------- | ------------------------------------------------------------------ |
-| Project              | `so2-jabodetabek-510408` (di organisasi `jovanditodana-org`)       |
-| Region               | `asia-southeast2` (Jakarta)                                        |
-| Cloud SQL            | instance `so2-db`, PostgreSQL 18, IP privat `10.4.240.3`, basis data `so2_jabodetabek`, peran aplikasi `so2_app` |
-| Cloud Run service    | `so2-api`, 4 GiB, 2 CPU, `min-instances 0`, akses publik          |
-| Cloud Run Job        | `so2-siklus`, menjalankan `python penjadwal.py --sekali`, 4 GiB, 2 CPU, batas 900 detik |
-| Cloud Scheduler      | `so2-siklus-per-jam`, jadwal `10 * * * *`, zona `Asia/Jakarta`     |
-| Secret Manager       | `so2-pg-password` (kata sandi `so2_app`), `so2-kunci-token` (kunci JWT) |
-| Artifact Registry    | `cloud-run-source-deploy` (citra hasil build)                      |
-| Firebase Hosting     | situs `selterra` → https://selterra.web.app                        |
-| Akun layanan         | `532707674958-compute@developer.gserviceaccount.com` (service, job, build, scheduler) |
+| Sumber daya       | Nama / nilai                                                                                                     |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Project           | `so2-jabodetabek-510408` (di organisasi `jovanditodana-org`)                                                     |
+| Region            | `asia-southeast2` (Jakarta)                                                                                      |
+| Cloud SQL         | instance `so2-db`, PostgreSQL 18, IP privat `10.4.240.3`, basis data `so2_jabodetabek`, peran aplikasi `so2_app` |
+| Cloud Run service | `so2-api`, 4 GiB, 2 CPU, `min-instances 0`, akses publik                                                         |
+| Cloud Run Job     | `so2-siklus`, menjalankan `python penjadwal.py --sekali`, 4 GiB, 2 CPU, batas 900 detik                          |
+| Cloud Scheduler   | `so2-siklus-per-jam`, jadwal `10 * * * *`, zona `Asia/Jakarta`                                                   |
+| Secret Manager    | `so2-pg-password` (kata sandi `so2_app`), `so2-kunci-token` (kunci JWT)                                          |
+| Artifact Registry | `cloud-run-source-deploy` (citra hasil build)                                                                    |
+| Firebase Hosting  | situs `selterra` → https://selterra.web.app                                                                      |
+| Akun layanan      | `532707674958-compute@developer.gserviceaccount.com` (service, job, build, scheduler)                            |
 
 Variabel lingkungan service dan job: `PG_HOST=10.4.240.3`, `PG_PORT=5432`,
 `PG_DB=so2_jabodetabek`, `PG_USER=so2_app`, `VERSI_MODEL`. Service juga memakai
@@ -442,15 +442,15 @@ tetap menayangkan versi terakhir yang dideploy sebelum situs `selterra` dibuat.
 Deploy mengambil kode dari **folder di komputer Anda**, bukan dari GitHub. Kode
 tidak tersinkron otomatis: setiap bagian harus di-deploy sendiri.
 
-| Yang Anda ubah                                              | Yang dijalankan                                   |
-| ----------------------------------------------------------- | ------------------------------------------------- |
-| Tampilan (`antarmuka/`)                                     | `.\deploy.ps1 -Frontend`                          |
-| Kode API (`api/`, `konfigurasi.py`, dst.)                   | `.\deploy.ps1 -Backend`                           |
-| Kode siklus per jam (`penjadwal.py`, `basis_data.py`, dst.) | `.\deploy.ps1 -Backend` (job ikut diperbarui)     |
-| Frontend dan backend sekaligus                              | `.\deploy.ps1`                                    |
-| Struktur basis data                                         | SQL di Cloud SQL Studio, lalu deploy kode        |
-| Variabel lingkungan atau kata sandi                         | lihat langkah 5 di bawah                          |
-| Berkas model                                                | lihat langkah 6 di bawah                          |
+| Yang Anda ubah                                              | Yang dijalankan                               |
+| ----------------------------------------------------------- | --------------------------------------------- |
+| Tampilan (`antarmuka/`)                                     | `.\deploy.ps1 -Frontend`                      |
+| Kode API (`api/`, `konfigurasi.py`, dst.)                   | `.\deploy.ps1 -Backend`                       |
+| Kode siklus per jam (`penjadwal.py`, `basis_data.py`, dst.) | `.\deploy.ps1 -Backend` (job ikut diperbarui) |
+| Frontend dan backend sekaligus                              | `.\deploy.ps1`                                |
+| Struktur basis data                                         | SQL di Cloud SQL Studio, lalu deploy kode     |
+| Variabel lingkungan atau kata sandi                         | lihat langkah 5 di bawah                      |
+| Berkas model                                                | lihat langkah 6 di bawah                      |
 
 #### Memperbarui frontend
 
@@ -466,6 +466,7 @@ tidak tersinkron otomatis: setiap bagian harus di-deploy sendiri.
 
    Skrip ini menjalankan `npm run build` lalu `firebase deploy --only hosting`.
    Prosesnya sekitar satu menit dan berakhir dengan `Deploy complete!`.
+
 5. Buka https://selterra.web.app lalu tekan **Ctrl+F5** supaya browser tidak
    memakai versi lama dari cache.
 
@@ -497,11 +498,12 @@ Perubahan tampilan **tidak** memerlukan deploy backend atau perubahan basis data
 #### Langkah 4: mengubah struktur basis data
 
 Perubahan skema tidak ikut deploy kode. Terapkan di **Cloud SQL Studio** (Console
+
 > SQL > `so2-db` > Cloud SQL Studio), login sebagai `postgres` pada basis data
-`so2_jabodetabek`. Peran `so2_app` sengaja tidak punya hak DDL. Tabel baru yang
-dibuat `postgres` otomatis memberi hak data ke `so2_app` lewat
-`ALTER DEFAULT PRIVILEGES`. Simpan perintah SQL-nya sebagai berkas di folder SQL
-supaya riwayatnya terdokumentasi.
+> `so2_jabodetabek`. Peran `so2_app` sengaja tidak punya hak DDL. Tabel baru yang
+> dibuat `postgres` otomatis memberi hak data ke `so2_app` lewat
+> `ALTER DEFAULT PRIVILEGES`. Simpan perintah SQL-nya sebagai berkas di folder SQL
+> supaya riwayatnya terdokumentasi.
 
 #### Langkah 5: mengubah variabel lingkungan atau kata sandi
 
@@ -589,7 +591,7 @@ gcloud sql instances patch so2-db --activation-policy=NEVER    # hentikan
 gcloud sql instances patch so2-db --activation-policy=ALWAYS   # nyalakan
 ```
 
-Pasang juga *budget alert* di Console > Billing > Budgets & alerts.
+Pasang juga _budget alert_ di Console > Billing > Budgets & alerts.
 
 ### 4.5 Menyiapkan dari nol
 
@@ -619,7 +621,7 @@ bila berbeda.
    ```
 
    Lalu di Cloud SQL Studio (login `postgres`). Buat peran lewat SQL, jangan lewat
-   tab *Users*: pengguna dari Console otomatis menjadi `cloudsqlsuperuser`.
+   tab _Users_: pengguna dari Console otomatis menjadi `cloudsqlsuperuser`.
 
    ```sql
    CREATE ROLE so2_app WITH LOGIN PASSWORD '<kata-sandi-kuat>'
@@ -707,8 +709,8 @@ bila berbeda.
    ```
 
    Ganti `PG_HOST` dengan IP privat instance yang baru bila berbeda. Jika
-   `--allow-unauthenticated` ditolak dengan pesan *"do not belong to a permitted
-   customer"*, longgarkan kebijakan `iam.allowedPolicyMemberDomains` pada project
+   `--allow-unauthenticated` ditolak dengan pesan _"do not belong to a permitted
+   customer"_, longgarkan kebijakan `iam.allowedPolicyMemberDomains` pada project
    (lihat [4.6](#46-masalah-yang-pernah-muncul)), lalu jalankan:
 
    ```powershell
@@ -746,24 +748,24 @@ bila berbeda.
     ```
 
     `antarmuka/firebase.json` sudah berisi `"site": "selterra"` serta aturan
-    *rewrite* `/api/**` ke `so2-api` di `asia-southeast2`. ID situs tidak bisa
+    _rewrite_ `/api/**` ke `so2-api` di `asia-southeast2`. ID situs tidak bisa
     diubah setelah dibuat dan harus unik di seluruh dunia.
 
 ### 4.6 Masalah yang pernah muncul
 
-| Gejala                                                          | Penyebab dan penanganan                                                                                                                                           |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Instance Cloud SQL berstatus `SUSPENDED`, perubahan ditolak 409 | `gcloud` menunjuk ke project yang salah (ID berbeda dari nama tampilan) dan project itu tidak punya billing. Cek `gcloud billing projects describe <project>`    |
-| Pembuatan instance: "Restrict Public IP access"                 | Kebijakan organisasi melarang Public IP. Gunakan Private IP (Private Service Access)                                                                              |
-| `pg_dump` 18 menghasilkan impor yang gagal                      | Baris `\restrict` / `\unrestrict` tidak dikenal impor Cloud SQL. Buang seperti di [4.5](#45-menyiapkan-dari-nol) langkah 5                                       |
-| Studio terkesan login sebagai `so2_app` tetapi `CREATE TABLE` berhasil | Sesi Studio masih berjalan sebagai `postgres`. Cek `SELECT current_user;`. Hak `so2_app` dapat diperiksa dengan `has_schema_privilege('so2_app','public','CREATE')` |
-| Build gagal: `storage.objects.get` ditolak                      | Akun layanan build belum punya izin. Beri peran seperti di [4.5](#45-menyiapkan-dari-nol) langkah 7                                                              |
-| Kontainer gagal start, log: `Memory limit of 2048 MiB exceeded` | Pemuatan sepuluh model butuh lebih dari 2 GiB. Naikkan: `gcloud run services update so2-api --region asia-southeast2 --memory 4Gi --cpu 2`                         |
-| `allUsers` ditolak: "do not belong to a permitted customer"     | Kebijakan `iam.allowedPolicyMemberDomains` aktif. Admin organisasi dapat menggantinya di tingkat project (Organization Policies, atau `gcloud org-policies set-policy` dengan `allowAll: true`) |
-| `firebase` membalas 401 saat `addfirebase` atau `deploy`        | Login Firebase kedaluwarsa. `firebase logout` lalu `firebase login`                                                                                               |
-| 504 pada situs, tetapi URL Cloud Run langsung berfungsi         | Firebase membatasi permintaan yang diteruskan sekitar 60 detik; *cold start* (pemuatan model) bisa melewatinya. `gcloud run services update so2-api --region asia-southeast2 --min-instances 1` |
-| Perubahan tampilan belum terlihat setelah deploy                | Cache browser. Tekan Ctrl+F5                                                                                                                                      |
-| Penjadwal per jam tetap memakai kode lama                       | Cloud Run Job belum diperbarui. Jalankan `.\deploy.ps1 -Backend` (tanpa `-TanpaJob`)                                                                              |
+| Gejala                                                                 | Penyebab dan penanganan                                                                                                                                                                         |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Instance Cloud SQL berstatus `SUSPENDED`, perubahan ditolak 409        | `gcloud` menunjuk ke project yang salah (ID berbeda dari nama tampilan) dan project itu tidak punya billing. Cek `gcloud billing projects describe <project>`                                   |
+| Pembuatan instance: "Restrict Public IP access"                        | Kebijakan organisasi melarang Public IP. Gunakan Private IP (Private Service Access)                                                                                                            |
+| `pg_dump` 18 menghasilkan impor yang gagal                             | Baris `\restrict` / `\unrestrict` tidak dikenal impor Cloud SQL. Buang seperti di [4.5](#45-menyiapkan-dari-nol) langkah 5                                                                      |
+| Studio terkesan login sebagai `so2_app` tetapi `CREATE TABLE` berhasil | Sesi Studio masih berjalan sebagai `postgres`. Cek `SELECT current_user;`. Hak `so2_app` dapat diperiksa dengan `has_schema_privilege('so2_app','public','CREATE')`                             |
+| Build gagal: `storage.objects.get` ditolak                             | Akun layanan build belum punya izin. Beri peran seperti di [4.5](#45-menyiapkan-dari-nol) langkah 7                                                                                             |
+| Kontainer gagal start, log: `Memory limit of 2048 MiB exceeded`        | Pemuatan sepuluh model butuh lebih dari 2 GiB. Naikkan: `gcloud run services update so2-api --region asia-southeast2 --memory 4Gi --cpu 2`                                                      |
+| `allUsers` ditolak: "do not belong to a permitted customer"            | Kebijakan `iam.allowedPolicyMemberDomains` aktif. Admin organisasi dapat menggantinya di tingkat project (Organization Policies, atau `gcloud org-policies set-policy` dengan `allowAll: true`) |
+| `firebase` membalas 401 saat `addfirebase` atau `deploy`               | Login Firebase kedaluwarsa. `firebase logout` lalu `firebase login`                                                                                                                             |
+| 504 pada situs, tetapi URL Cloud Run langsung berfungsi                | Firebase membatasi permintaan yang diteruskan sekitar 60 detik; _cold start_ (pemuatan model) bisa melewatinya. `gcloud run services update so2-api --region asia-southeast2 --min-instances 1` |
+| Perubahan tampilan belum terlihat setelah deploy                       | Cache browser. Tekan Ctrl+F5                                                                                                                                                                    |
+| Penjadwal per jam tetap memakai kode lama                              | Cloud Run Job belum diperbarui. Jalankan `.\deploy.ps1 -Backend` (tanpa `-TanpaJob`)                                                                                                            |
 
 ---
 

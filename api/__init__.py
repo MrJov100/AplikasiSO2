@@ -1,17 +1,16 @@
 """Lapisan web aplikasi prediksi SO2.
 
-Pemetaan terhadap Class Diagram revisi (33 kelas):
+Susunan berlapis:
 
-  Gambar 4a — Entitas     -> api/skema.py     (model tanggapan Pydantic)
-  Gambar 4a — Repositori  -> api/repositori.py (tujuh repositori)
-  Gambar 4b — Kendali     -> api/controller.py (enam APIRouter)
-  Gambar 4b — Layanan     -> api/layanan.py    (enam layanan)
-  Gambar 4b — Pendukung   -> berkas di akar folder, sudah ada sejak Fase 3a/3b:
-        PembangunFitur, ModelStacking, KlasifikasiKualitasUdara -> model.py
-        OpenMeteoClient                                          -> penarikan.py
-        ValidatorPengamatan                                      -> validasi.py
-        PenjadwalSinkronisasi                                    -> penjadwal.py
+  Entitas     -> api/skema.py     (model tanggapan Pydantic)
+  Repositori  -> api/repositori.py (tujuh repositori)
+  Kendali     -> api/controller.py (enam APIRouter)
+  Layanan     -> api/layanan.py    (enam layanan)
+  Pendukung   -> berkas di akar folder:
+        model.py        pembangunan fitur, model stacking, kategori kualitas udara
+        penarikan.py    klien Open-Meteo
+        validasi.py     validasi pengamatan
+        penjadwal.py    penjadwal sinkronisasi
 
-Kelas layanan mengakses basis data hanya lewat repositori, sesuai catatan pada
-rancangan Class Diagram.
+Layanan mengakses basis data hanya lewat repositori.
 """

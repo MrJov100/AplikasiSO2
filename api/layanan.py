@@ -1,4 +1,4 @@
-"""Enam layanan — lapisan Layanan pada Class Diagram (Gambar 4b).
+"""Enam layanan — lapisan Layanan.
 
 Layanan memanggil repositori dan modul pendukung; tidak menulis SQL sendiri.
 """
@@ -160,9 +160,8 @@ class LayananVisualisasi:
 
 
 class LayananSinkronisasi:
-    """Termasuk fungsi pemantauan; LayananMonitoring dilebur ke sini sesuai
-    catatan rancangan Class Diagram agar satu controller berpasangan dengan
-    satu layanan."""
+    """Termasuk fungsi pemantauan; layanan monitoring dilebur ke sini agar
+    satu controller berpasangan dengan satu layanan."""
 
     def __init__(self):
         """Menyiapkan repositori pengamatan, sinkronisasi, siklus, dan koreksi."""
@@ -362,7 +361,7 @@ class LayananRiwayat:
         return self.r.riwayat(s, kode_sel, batas, hanya_terisi, VERSI_MODEL)
 
     def ketelitian(self, s):
-        """hitungMae dan hitungRmse pada Class Diagram.
+        """Menghitung MAE dan RMSE operasional.
 
         Pengamatan berstatus 'dikecualikan' disaring di tingkat kueri: galat
         terhadap nilai yang sudah dinilai salah admin tidak bermakna.

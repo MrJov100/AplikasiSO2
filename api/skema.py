@@ -1,4 +1,4 @@
-"""Model tanggapan — lapisan Entitas pada Class Diagram (Gambar 4a)."""
+"""Model tanggapan — lapisan Entitas."""
 from datetime import datetime
 from typing import Optional
 
