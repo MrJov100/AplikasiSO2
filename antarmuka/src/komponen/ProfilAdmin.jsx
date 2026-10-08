@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { panggil } from '../api.js'
 
 // Pop-up Profil Admin, dibuka dari baris nama pada kaki sidebar.
@@ -28,7 +29,10 @@ export default function ProfilAdmin({ pengguna, setPengguna, tutup }) {
       .catch(() => {})
   }, [setPengguna])
 
-  return (
+  // Dirender lewat portal ke <body>: .sisi bersifat sticky sehingga membentuk
+  // stacking context sendiri, dan tirai fixed di dalamnya ikut terperangkap di
+  // bawah elemen ber-position pada konten utama (mis. grafik Recharts).
+  return createPortal(
     <div className="sorot-tirai" onClick={tutup} role="dialog" aria-modal="true"
          aria-label="Profil admin">
       <div className="profil-kotak" ref={kotak} onClick={(e) => e.stopPropagation()}>
@@ -45,7 +49,8 @@ export default function ProfilAdmin({ pengguna, setPengguna, tutup }) {
 
         <Rincian profil={profil} />
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
