@@ -5,18 +5,55 @@ import { Memuat, Galat, Sorot, Halaman } from "../komponen/Umum.jsx";
 // Jumlah baris riwayat sinkronisasi per halaman.
 const PER_HALAMAN = 10;
 
-// Kolom pengamatan yang boleh dikoreksi admin, beserta labelnya.
-const KOLOM_BOLEH = [
-  ["so2", "SO₂ (µg/m³)"],
-  ["suhu", "Suhu (°C)"],
-  ["kelembapan", "Kelembapan (%)"],
-  ["titik_embun", "Titik embun (°C)"],
-  ["curah_hujan", "Curah hujan (mm)"],
-  ["tekanan_permukaan", "Tekanan (hPa)"],
-  ["tutupan_awan", "Tutupan awan (%)"],
-  ["kecepatan_angin", "Kecepatan angin (m/s)"],
-  ["arah_angin", "Arah angin (°)"],
+// Kolom pengamatan yang boleh dikoreksi admin: nama tampilan, satuan, dan
+// jumlah desimal yang wajar. Urutannya mengikuti urutan kolom pada tabel
+// pengamatan, bukan urutan kepentingan.
+const KOLOM_PENGAMATAN = [
+  ["so2", "SO₂", "µg/m³", 2],
+  ["suhu", "Suhu", "°C", 1],
+  ["kelembapan", "Kelembapan", "%", 0],
+  ["titik_embun", "Titik embun", "°C", 1],
+  ["curah_hujan", "Curah hujan", "mm", 1],
+  ["tekanan_permukaan", "Tekanan", "hPa", 1],
+  ["tutupan_awan", "Tutupan awan", "%", 0],
+  ["kecepatan_angin", "Kecepatan angin", "m/s", 1],
+  ["arah_angin", "Arah angin", "°", 0],
 ];
+
+// Penanda alasan validator -> kolom yang terlibat, dipakai menyorot nilai
+// penyebab pada rincian pengamatan. Teks alasannya dibentuk validasi.py. Satu
+// alasan dapat menunjuk lebih dari satu kolom karena lapis 2 memeriksa
+// HUBUNGAN antarvariabel, bukan nilai tunggal: "kelembapan tidak konsisten"
+// bisa berarti kelembapannya yang salah, atau suhu/titik embunnya.
+const ALASAN_KOLOM = [
+  ["titik embun melebihi suhu", ["titik_embun", "suhu"]],
+  ["kelembapan tidak konsisten", ["kelembapan", "suhu", "titik_embun"]],
+  ["tekanan di luar pita sel", ["tekanan_permukaan"]],
+  ["SO2 luar kebiasaan", ["so2"]],
+  ["lonjakan SO2", ["so2"]],
+  ["suhu luar kebiasaan", ["suhu"]],
+  ["kelembapan luar kebiasaan", ["kelembapan"]],
+  ["titik embun luar kebiasaan", ["titik_embun"]],
+  ["curah hujan luar kebiasaan", ["curah_hujan"]],
+  ["kecepatan angin luar kebiasaan", ["kecepatan_angin"]],
+];
+
+/** Kolom yang disebut alasan validator pada satu baris pengamatan.
+ *
+ * Hanya alasan yang MASIH TERBACA yang tersorot. Kolom alasan_anomali selebar
+ * 100 karakter, jadi validasi.py memotong sisanya menjadi "(+N lagi)"; N
+ * alasan yang terpotong itu tidak dapat dipetakan ke kolom. Status 'anomali'
+ * yang ditulis admin lewat 'tandai_anomali' berisi teks bebas dan juga tidak
+ * tersorot -- itu disengaja, bukan kegagalan pencocokan.
+ */
+function kolomDisorot(alasan) {
+  const hasil = new Set();
+  if (!alasan) return hasil;
+  for (const [penanda, kolom] of ALASAN_KOLOM) {
+    if (alasan.includes(penanda)) kolom.forEach((k) => hasil.add(k));
+  }
+  return hasil;
+}
 
 // Tab pada halaman Monitoring.
 const TAB = [
@@ -40,6 +77,30 @@ function PanelKoreksi({ baris, selesai, batal }) {
   const [nilaiBaru, setNilaiBaru] = useState("");
   const [galat, setGalat] = useState(null);
   const [sedang, setSedang] = useState(false);
+
+  const [semua, setSemua] = useState(false);
+
+  const disorot = kolomDisorot(baris.alasan_anomali);
+
+  // Variabel model sel ini, dikirim server bersama barisnya (layanan.anomali).
+  // Himpunan kosong berarti metadata model tidak terbaca di server; dalam
+  // keadaan itu penyaringan dimatikan dan kesembilan variabel ditampilkan.
+  const variabelModel = new Set(baris.variabel_model || []);
+  const tanpaPeta = variabelModel.size === 0;
+
+  // Yang ditampilkan: SO2 selalu, variabel model sel ini, dan variabel apa pun
+  // yang disebut alasan validator baris ini. Yang terakhir itu syarat, bukan
+  // kemurahan hati: tekanan permukaan dan curah hujan DIPERIKSA validator
+  // (lapis 3 dan 4) tetapi tidak terpilih di sel mana pun, jadi tanpa
+  // pengecualian ini baris yang ditandai karena keduanya justru menyembunyikan
+  // kolom penyebabnya.
+  const tampil = (k) =>
+    semua || tanpaPeta || k === "so2" || variabelModel.has(k) || disorot.has(k);
+  const kolomTampil = KOLOM_PENGAMATAN.filter(([k]) => tampil(k));
+  const tersembunyi = KOLOM_PENGAMATAN.length - kolomTampil.length;
+  const adaLuarModel =
+    !tanpaPeta &&
+    kolomTampil.some(([k]) => k !== "so2" && !variabelModel.has(k));
 
   // Mengirim tindakan koreksi ke server lalu memberi tahu induk bila berhasil.
   async function kirim() {
@@ -65,6 +126,18 @@ function PanelKoreksi({ baris, selesai, batal }) {
   const siap =
     alasan.trim().length >= 5 &&
     (tindakan !== "ubah_nilai" || nilaiBaru !== "");
+
+  // Bila kolom yang sedang dipilih untuk diubah tidak lagi ditampilkan (tombol
+  // "variabel lain" ditutup kembali), pilihannya dikembalikan ke SO2: tidak ada
+  // nilai yang boleh diubah tanpa nilainya terlihat.
+  useEffect(() => {
+    if (!tampil(kolom)) {
+      setKolom("so2");
+      // Nilai yang sudah diketik milik kolom yang baru saja disembunyikan.
+      // Membiarkannya berarti angka tekanan bisa tersimpan sebagai SO2.
+      setNilaiBaru("");
+    }
+  }, [semua, kolom]);
 
   // Tutup dengan Escape, seperti dialog Profil Admin.
   useEffect(() => {
@@ -98,9 +171,59 @@ function PanelKoreksi({ baris, selesai, batal }) {
         <div>
           <h3>Koreksi pengamatan #{baris.id_pengamatan}</h3>
           <p className="kecil">
-            {baris.kode_sel} · {jam(baris.waktu)} · SO₂ {angka(baris.so2)} µg/m³
-            · status sekarang <b>{baris.status}</b>
+            {baris.kode_sel} · {jam(baris.waktu)} · status sekarang{" "}
+            <b>{baris.status}</b>
           </p>
+          <p className="kecil">
+            Alasan validator: {baris.alasan_anomali || "—"}
+          </p>
+
+          {/* Nilai baris ini, bukan SO2 saja: enam dari delapan alasan
+              validator berasal dari variabel meteorologi, dan admin perlu
+              melihat nilai yang bersangkutan untuk memutuskan mana yang salah.
+              Yang ditampilkan dibatasi variabel milik sel ini supaya tidak ada
+              variabel yang tidak dipakai sel itu ikut memenuhi panel. Yang
+              disebut alasan validator diberi tanda; kolom yang sedang dipilih
+              untuk diubah diberi garis tepi. */}
+          <div className="rincian-pengamatan">
+            {kolomTampil.map(([k, nama, satuan, desimal]) => (
+              <div
+                key={k}
+                className={
+                  "rincian-medan" +
+                  (disorot.has(k) ? " ditandai" : "") +
+                  (tindakan === "ubah_nilai" && kolom === k ? " terpilih" : "") +
+                  (!tanpaPeta && k !== "so2" && !variabelModel.has(k)
+                    ? " bukan-model"
+                    : "")
+                }
+              >
+                <span className="rincian-nama">{nama}</span>
+                <span className="rincian-nilai">
+                  {angka(baris[k], desimal)}
+                  <small> {satuan}</small>
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {adaLuarModel && (
+            <p className="kecil rincian-catatan">
+              Nama bercetak miring bukan masukan model sel ini —
+              mengoreksinya memperbaiki status validasi, bukan hasil prediksi.
+            </p>
+          )}
+
+          {!tanpaPeta && (tersembunyi > 0 || semua) && (
+            <button
+              className="kecil rincian-ganti"
+              onClick={() => setSemua(!semua)}
+            >
+              {semua
+                ? "Tampilkan hanya variabel sel ini"
+                : `Tampilkan ${tersembunyi} variabel lain`}
+            </button>
+          )}
 
           <label className="medan">
             <span>Tindakan</span>
@@ -131,9 +254,9 @@ function PanelKoreksi({ baris, selesai, batal }) {
                   value={kolom}
                   onChange={(e) => setKolom(e.target.value)}
                 >
-                  {KOLOM_BOLEH.map(([k, n]) => (
+                  {kolomTampil.map(([k, nama, satuan]) => (
                     <option key={k} value={k}>
-                      {n}
+                      {nama} ({satuan})
                     </option>
                   ))}
                 </select>
@@ -460,7 +583,6 @@ export default function Monitoring() {
                 <th className="angka">SO₂</th>
                 <th>Status</th>
                 <th>Alasan validator</th>
-                <th className="angka">Angin</th>
                 <th></th>
               </tr>
             </thead>
@@ -479,7 +601,6 @@ export default function Monitoring() {
                       </span>
                     </td>
                     <td className="kecil">{b.alasan_anomali || "—"}</td>
-                    <td className="angka">{angka(b.kecepatan_angin, 1)}</td>
                     <td>
                       <button
                         className="kecil"

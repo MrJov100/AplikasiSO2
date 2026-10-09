@@ -2,8 +2,10 @@
 
 Layanan memanggil repositori dan modul pendukung; tidak menulis SQL sendiri.
 """
+import json
 import sys
 from datetime import timedelta
+from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
@@ -17,7 +19,8 @@ import segarkan_pengamatan as sp                          # noqa: E402
 from api import repositori as repo                        # noqa: E402
 from api import keamanan                                  # noqa: E402
 from konfigurasi import (AMBANG_KATEGORI, BAKU_MUTU_1_JAM,       # noqa: E402
-                         BATAS_KEMUTAKHIRAN_JAM, KODE_SEL, VERSI_MODEL)
+                         BATAS_KEMUTAKHIRAN_JAM, FOLDER_MODEL,
+                         KODE_SEL, KOLOM_DB_KE_MODEL, VERSI_MODEL)
 
 
 def _kemutakhiran(waktu_terakhir):
@@ -30,6 +33,34 @@ def _kemutakhiran(waktu_terakhir):
     return {"waktu_data_terakhir": waktu_terakhir,
             "tertinggal_jam": max(0, tertinggal),
             "mutakhir": tertinggal <= BATAS_KEMUTAKHIRAN_JAM}
+
+
+# Variabel meteorologi yang lolos seleksi mutual information BERBEDA tiap sel,
+# jadi rincian pengamatan pada halaman Monitoring tidak perlu menampilkan
+# kesembilannya untuk setiap baris. Sumber kebenarannya metadata_model.json --
+# bukan daftar yang ditulis ulang di antarmuka, yang akan usang begitu model
+# dilatih kembali dengan hasil seleksi yang berbeda.
+_MODEL_KE_DB = {model: db for db, model in KOLOM_DB_KE_MODEL.items()}
+
+
+@lru_cache(maxsize=1)
+def variabel_model_per_sel():
+    """Kolom basis data yang dipakai model tiap sel, SO2 termasuk.
+
+    Peta kosong berarti metadata model tidak terbaca. Itu bukan galat yang
+    pantas menggagalkan halaman Monitoring: antarmuka menanggapinya dengan
+    menampilkan kesembilan variabel, yaitu perilaku sebelum penyaringan ini
+    ada. Lebih baik berlebih daripada menyembunyikan nilai yang dibutuhkan.
+    """
+    try:
+        berkas = FOLDER_MODEL / "metadata_model.json"
+        meta = json.loads(berkas.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return {}
+    return {kode: ["so2"] + [_MODEL_KE_DB[v]
+                             for v in rinci.get("variabel_terpilih", [])
+                             if v in _MODEL_KE_DB]
+            for kode, rinci in meta.items()}
 
 
 class LayananLokasi:
@@ -191,8 +222,17 @@ class LayananSinkronisasi:
         return self.rs.terakhir(s, batas)
 
     def anomali(self, s, batas=200):
-        """Pengamatan yang berstatus bukan 'sah'."""
-        return self.rp.daftar_anomali(s, batas)
+        """Pengamatan yang berstatus bukan 'sah'.
+
+        Tiap baris dilengkapi variabel_model: kolom yang benar-benar dipakai
+        model sel itu. Antarmuka memakainya untuk membatasi rincian pengamatan
+        pada variabel yang relevan bagi sel yang bersangkutan.
+        """
+        peta = variabel_model_per_sel()
+        baris = self.rp.daftar_anomali(s, batas)
+        for b in baris:
+            b["variabel_model"] = peta.get(b["kode_sel"], [])
+        return baris
 
     def riwayat_koreksi(self, s, batas=100):
         """Jejak audit koreksi admin terbaru."""
