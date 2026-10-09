@@ -77,12 +77,15 @@ export function Kemutakhiran({ data }) {
   }
   return (
     <div className="catatan ingat">
-      Data belum mutakhir — tertinggal <b>{data.tertinggal_jam} jam</b> dari jam
-      berjalan. Pengamatan terakhir pukul{' '}
-      <b>{data.waktu_data_terakhir
-        ? new Date(data.waktu_data_terakhir).toLocaleString('id-ID')
-        : 'tidak diketahui'}</b>.
-      Sistem menahan diri daripada menampilkan prediksi untuk jam yang sudah lewat.
+      Data belum diperbarui
+      {data.waktu_data_terakhir ? (
+        <> — terakhir tercatat pada{' '}
+          <b>{new Date(data.waktu_data_terakhir).toLocaleString('id-ID')}</b>
+          {data.tertinggal_jam != null && <> (tertinggal {data.tertinggal_jam} jam)</>}</>
+      ) : (
+        <> — belum ada data pengamatan untuk lokasi ini</>
+      )}
+      . Prediksi untuk jam yang sudah lewat tidak ditampilkan.
     </div>
   )
 }

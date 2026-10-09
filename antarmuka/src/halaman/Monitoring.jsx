@@ -83,7 +83,10 @@ function PanelKoreksi({ baris, selesai, batal }) {
       aria-modal="true"
       aria-label="Koreksi pengamatan"
     >
-      <div className="profil-kotak koreksi-kotak" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="profil-kotak koreksi-kotak"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           className="profil-tutup"
           onClick={batal}

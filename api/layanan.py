@@ -112,12 +112,11 @@ class LayananPrediksi:
         # adalah sebab yang berada satu lapis di belakangnya.
         pesan = None
         if basi:
-            pesan = ("Prediksi yang ditampilkan sudah kedaluwarsa: jam "
-                     "targetnya telah lewat. Jalankan sinkronisasi untuk "
-                     "membentuk prediksi jam berikutnya.")
+            pesan = ("Prediksi ini sudah lewat waktunya dan belum diganti "
+                     "dengan yang baru. Mohon tunggu pembaruan berikutnya.")
         elif not km["mutakhir"]:
-            pesan = ("Data belum mutakhir, prediksi yang ditampilkan berasal "
-                     "dari siklus sebelumnya.")
+            pesan = ("Data belum diperbarui, sehingga prediksi yang "
+                     "ditampilkan masih berasal dari pembaruan sebelumnya.")
         return {"prediksi": p,
                 "kemutakhiran": km,
                 "so2_terakhir": float(terakhir["so2"]) if terakhir else None,

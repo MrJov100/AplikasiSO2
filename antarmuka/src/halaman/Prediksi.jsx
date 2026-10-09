@@ -35,6 +35,9 @@ export default function Prediksi({ admin }) {
 
   const info = lokasi.find((l) => l.kode_sel === dipilih);
   const p = data?.prediksi;
+  // Kode pada alamat (mis. /prediksi/G99) tidak ada dalam daftar sel. Daftar
+  // yang gagal dimuat (kosong) tidak dianggap bukti bahwa kodenya salah.
+  const tidakDikenal = lokasi.length > 0 && !info;
 
   return (
     <>
@@ -45,21 +48,36 @@ export default function Prediksi({ admin }) {
 
       <div className="baris-kendali">
         <select value={dipilih} onChange={(e) => pilih(e.target.value)}>
+          {tidakDikenal && (
+            <option value={dipilih} disabled>
+              Pilih lokasi…
+            </option>
+          )}
           {lokasi.map((l) => (
             <option key={l.kode_sel} value={l.kode_sel}>
               {admin ? `${l.kode_sel} — ${l.nama}` : l.nama}
             </option>
           ))}
         </select>
-        <button onClick={() => navigasi(`/visualisasi/${dipilih}`)}>
+        <button
+          disabled={tidakDikenal}
+          onClick={() => navigasi(`/visualisasi/${dipilih}`)}
+        >
           Lihat grafik riwayat
         </button>
       </div>
 
-      {galat && <Galat pesan={galat} />}
-      {!data && !galat && <Memuat />}
+      {tidakDikenal && (
+        <Galat
+          pesan={`Lokasi dengan kode "${dipilih}" tidak ditemukan. Silakan pilih lokasi dari daftar di atas.`}
+        />
+      )}
+      {!tidakDikenal && galat && (
+        <Galat pesan="Prediksi belum dapat ditampilkan. Periksa koneksi Anda, lalu muat ulang halaman ini." />
+      )}
+      {!tidakDikenal && !data && !galat && <Memuat />}
 
-      {data && (
+      {!tidakDikenal && data && (
         <>
           <Kemutakhiran data={data.kemutakhiran} />
 
@@ -77,7 +95,7 @@ export default function Prediksi({ admin }) {
 
           {!p && (
             <div className="catatan ingat" style={{ marginTop: "1rem" }}>
-              Belum ada prediksi tersimpan untuk sel ini.
+              Prediksi untuk lokasi ini belum tersedia.
             </div>
           )}
 
