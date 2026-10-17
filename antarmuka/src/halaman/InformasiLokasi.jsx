@@ -1,30 +1,36 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { panggil, angka } from '../api.js'
-import { Memuat, Galat } from '../komponen/Umum.jsx'
+import { lazy, Suspense, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { panggil, angka } from "../api.js";
+import { Memuat, Galat } from "../komponen/Umum.jsx";
+
+// Peta dimuat terpisah (Leaflet ~150 KB) agar halaman lain tidak ikut
+// menanggung ukurannya.
+const PetaSel = lazy(() => import("../komponen/PetaSel.jsx"));
 
 // Halaman Informasi Lokasi: daftar kesepuluh sel grid beserta koordinat,
 // elevasi, dan karakteristiknya. Karakteristik itulah alasan kesepuluh sel
 // dipilih — perairan, pesisir, industri, urban padat, dataran tinggi.
 export default function InformasiLokasi({ admin }) {
-  const [data, setData] = useState(null)
-  const [galat, setGalat] = useState(null)
-  const navigasi = useNavigate()
+  const [data, setData] = useState(null);
+  const [galat, setGalat] = useState(null);
+  const navigasi = useNavigate();
 
   useEffect(() => {
-    panggil('/api/informasi/lokasi').then(setData).catch((e) => setGalat(e.message))
-  }, [])
+    panggil("/api/informasi/lokasi")
+      .then(setData)
+      .catch((e) => setGalat(e.message));
+  }, []);
 
-  if (galat) return <Galat pesan={galat} />
-  if (!data) return <Memuat />
+  if (galat) return <Galat pesan={galat} />;
+  if (!data) return <Memuat />;
 
   return (
     <>
       <div className="kepala">
         <h1>Informasi Lokasi</h1>
         <p>
-          Sepuluh sel grid Jabodetabek yang dipakai penelitian. Tiap sel memiliki
-          model tersendiri, dilatih hanya dengan data sel itu.
+          Sepuluh sel grid Jabodetabek yang dipakai penelitian. Tiap sel
+          memiliki model tersendiri, dilatih hanya dengan data sel itu.
         </p>
       </div>
 
@@ -45,16 +51,22 @@ export default function InformasiLokasi({ admin }) {
           <tbody>
             {data.map((l) => (
               <tr key={l.kode_sel}>
-                {admin && <td><b>{l.kode_sel}</b></td>}
+                {admin && (
+                  <td>
+                    <b>{l.kode_sel}</b>
+                  </td>
+                )}
                 <td>{l.nama}</td>
                 <td>{l.wilayah_administratif}</td>
                 <td className="angka">{angka(l.lintang, 4)}</td>
                 <td className="angka">{angka(l.bujur, 4)}</td>
                 <td className="angka">{angka(l.elevasi, 0)}</td>
-                <td className="kecil">{l.karakteristik || '—'}</td>
+                <td className="kecil">{l.karakteristik || "—"}</td>
                 <td>
-                  <button className="kecil"
-                          onClick={() => navigasi(`/prediksi/${l.kode_sel}`)}>
+                  <button
+                    className="kecil"
+                    onClick={() => navigasi(`/prediksi/${l.kode_sel}`)}
+                  >
                     Prediksi
                   </button>
                 </td>
@@ -63,6 +75,12 @@ export default function InformasiLokasi({ admin }) {
           </tbody>
         </table>
       </div>
+
+      <div className="kartu">
+        <Suspense fallback={<div className="peta-sel" />}>
+          <PetaSel data={data} admin={admin} />
+        </Suspense>
+      </div>
     </>
-  )
+  );
 }

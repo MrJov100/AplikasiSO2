@@ -1223,3 +1223,29 @@ button.tautan:hover {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ---------- peta sebaran sel grid (Informasi Lokasi) ---------- */
+/* Tinggi eksplisit wajib: tanpa itu peta Leaflet dirender setinggi 0 px.
+   position + z-index: 0 membuat stacking context sendiri, sehingga panel
+   Leaflet (z-index 400-1000) tidak menutupi bilah atas seluler (40) maupun
+   dialog Sorot (50). */
+.peta-sel {
+  position: relative;
+  z-index: 0;
+  height: 420px;
+  width: 100%;
+  border-radius: 6px;
+  background: var(--abu-muda);
+}
+.peta-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+@media (max-width: 600px) {
+  .peta-sel {
+    height: 300px;
+  }
+}
