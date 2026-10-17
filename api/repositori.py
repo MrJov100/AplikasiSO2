@@ -32,22 +32,22 @@ class LokasiRepository:
 class PengamatanRepository:
     """Akses tabel pengamatan (data SO2 dan meteorologi per jam)."""
     def riwayat(self, s, kode_sel, jam):
-        """Deret SO2 per jam untuk grafik. Baris dikecualikan tidak ditampilkan."""
-        with s.cursor() as k:
-            k.execute("""
-                SELECT p.waktu, p.so2, p.status
-                FROM   pengamatan p JOIN lokasi l ON l.id_lokasi = p.id_lokasi
-                WHERE  l.kode_sel = %s AND p.status <> 'dikecualikan'
-                ORDER  BY p.waktu DESC LIMIT %s""", (kode_sel, jam))
-            return list(reversed(k.fetchall()))
-
-    def terakhir(self, s, kode_sel):
-        """Pengamatan terbaru satu sel yang tidak dikecualikan."""
+        """Deret SO2 per jam untuk grafik."""
         with s.cursor() as k:
             k.execute("""
                 SELECT p.waktu, p.so2
                 FROM   pengamatan p JOIN lokasi l ON l.id_lokasi = p.id_lokasi
-                WHERE  l.kode_sel = %s AND p.status <> 'dikecualikan'
+                WHERE  l.kode_sel = %s
+                ORDER  BY p.waktu DESC LIMIT %s""", (kode_sel, jam))
+            return list(reversed(k.fetchall()))
+
+    def terakhir(self, s, kode_sel):
+        """Pengamatan terbaru satu sel."""
+        with s.cursor() as k:
+            k.execute("""
+                SELECT p.waktu, p.so2
+                FROM   pengamatan p JOIN lokasi l ON l.id_lokasi = p.id_lokasi
+                WHERE  l.kode_sel = %s
                 ORDER  BY p.waktu DESC LIMIT 1""", (kode_sel,))
             return k.fetchone()
 
@@ -79,75 +79,21 @@ class PengamatanRepository:
                            SELECT p.waktu, p.so2
                            FROM   pengamatan p
                            WHERE  p.id_lokasi = l.id_lokasi
-                             AND  p.status <> 'dikecualikan'
                            ORDER  BY p.waktu DESC
                            LIMIT  1) t""")
             return {b["kode_sel"]: b for b in k.fetchall()}
 
     def ringkasan_per_sel(self, s):
-        """Waktu data terakhir, jumlah pengamatan, dan jumlah anomali tiap sel."""
+        """Waktu data terakhir dan jumlah pengamatan tiap sel."""
         with s.cursor() as k:
             k.execute("""
                 SELECT l.kode_sel, l.nama, l.urutan_tampil,
                        max(p.waktu)                                   AS waktu_data_terakhir,
-                       count(*)                                       AS jumlah_pengamatan,
-                       count(*) FILTER (WHERE p.status <> 'sah')      AS jumlah_anomali
+                       count(*)                                       AS jumlah_pengamatan
                 FROM   lokasi l LEFT JOIN pengamatan p ON p.id_lokasi = l.id_lokasi
                 GROUP  BY l.kode_sel, l.nama, l.urutan_tampil
                 ORDER  BY l.urutan_tampil""")
             return k.fetchall()
-
-    def daftar_anomali(self, s, batas=200):
-        """Pengamatan berstatus bukan 'sah', terbaru lebih dulu."""
-        with s.cursor() as k:
-            k.execute("""
-                SELECT p.id_pengamatan, l.kode_sel, p.waktu, p.so2, p.suhu,
-                       p.kelembapan, p.titik_embun, p.curah_hujan,
-                       p.tekanan_permukaan, p.tutupan_awan, p.kecepatan_angin,
-                       p.arah_angin, p.status, p.alasan_anomali
-                FROM   pengamatan p JOIN lokasi l ON l.id_lokasi = p.id_lokasi
-                WHERE  p.status <> 'sah'
-                ORDER  BY p.waktu DESC LIMIT %s""", (batas,))
-            return k.fetchall()
-
-    def cari(self, s, id_pengamatan):
-        """Satu pengamatan berdasarkan id beserta kode selnya."""
-        with s.cursor() as k:
-            k.execute("""
-                SELECT p.*, l.kode_sel FROM pengamatan p
-                JOIN   lokasi l ON l.id_lokasi = p.id_lokasi
-                WHERE  p.id_pengamatan = %s""", (id_pengamatan,))
-            return k.fetchone()
-
-    def ubah_status(self, s, id_pengamatan, status, alasan):
-        """Mengganti hapus fisik. Penghapusan memutus pembentukan lag t-1..t-3."""
-        with s.cursor() as k:
-            k.execute("""
-                UPDATE pengamatan
-                SET    status = %s, alasan_anomali = %s,
-                       diperbarui_pada = (now() AT TIME ZONE 'Asia/Jakarta')
-                WHERE  id_pengamatan = %s
-                RETURNING id_pengamatan, status, alasan_anomali""",
-                      (status, alasan, id_pengamatan))
-            return k.fetchone()
-
-    def ubah_nilai(self, s, id_pengamatan, kolom, nilai_baru):
-        """Mengubah nilai satu kolom pengamatan; nama kolom dibatasi daftar putih."""
-        if kolom not in ("so2", "suhu", "kelembapan", "titik_embun", "curah_hujan",
-                         "tekanan_permukaan", "tutupan_awan", "kecepatan_angin",
-                         "arah_angin"):
-            raise ValueError(f"Kolom tidak dikenal: {kolom}")
-        with s.cursor() as k:
-            # Nama kolom tidak bisa diparameterkan; karena itu disaring dengan
-            # daftar putih di atas, bukan disisipkan langsung dari masukan.
-            k.execute(f"""
-                UPDATE pengamatan
-                SET    {kolom} = %s,
-                       diperbarui_pada = (now() AT TIME ZONE 'Asia/Jakarta')
-                WHERE  id_pengamatan = %s
-                RETURNING id_pengamatan, {kolom} AS nilai""",
-                      (nilai_baru, id_pengamatan))
-            return k.fetchone()
 
 
 class PrediksiRepository:
@@ -174,7 +120,7 @@ class PrediksiRepository:
         """Baris riwayat prediksi, beserta penanda apakah ikut dihitung.
 
         Kolom `dihitung` memakai syarat yang SAMA PERSIS dengan SQL_KETELITIAN
-        (nilai aktual ada, versi model produksi, pengamatan tidak dikecualikan),
+        (nilai aktual ada, versi model produksi),
         dan sengaja dihitung di SQL, bukan di peramban. Kalau syaratnya ditulis
         ulang di sisi antarmuka, suatu saat keduanya akan berbeda dan halaman
         akan menandai baris yang sebenarnya ikut dihitung, atau sebaliknya.
@@ -191,17 +137,13 @@ class PrediksiRepository:
                        p.melampaui_baku_mutu, p.rasio_baku_mutu, p.nilai_aktual,
                        p.selisih, p.versi_model, p.dibuat_pada,
                        (p.nilai_aktual IS NOT NULL
-                        AND p.versi_model = %(versi)s
-                        AND coalesce(o.status, '') <> 'dikecualikan')  AS dihitung,
+                        AND p.versi_model = %(versi)s)                AS dihitung,
                        CASE
                          WHEN p.nilai_aktual IS NULL          THEN NULL
                          WHEN p.versi_model <> %(versi)s      THEN 'versi uji'
-                         WHEN o.status = 'dikecualikan'       THEN 'pengamatan dikecualikan'
                        END                                            AS sebab_tidak_dihitung
                 FROM   prediksi p
                 JOIN   lokasi l      ON l.id_lokasi = p.id_lokasi
-                LEFT JOIN pengamatan o ON o.id_lokasi = p.id_lokasi
-                                      AND o.waktu     = p.waktu_prediksi
                 WHERE  (%(sel)s::varchar IS NULL OR l.kode_sel = %(sel)s::varchar)
                   AND  (NOT %(terisi)s OR p.nilai_aktual IS NOT NULL)
                 ORDER  BY p.waktu_prediksi DESC, l.urutan_tampil
@@ -273,42 +215,10 @@ class SinkronisasiLokasiRepository:
                 SELECT DISTINCT ON (l.kode_sel)
                        l.kode_sel, sl.waktu_data_terakhir, sl.status,
                        sl.pesan_galat, sl.jumlah_baris_masuk,
-                       sl.jumlah_baris_diperbarui, sl.jumlah_anomali,
+                       sl.jumlah_baris_diperbarui,
                        sl.durasi_ms, s.waktu_mulai
                 FROM   sinkronisasi_lokasi sl
                 JOIN   lokasi l ON l.id_lokasi = sl.id_lokasi
                 JOIN   siklus_sinkronisasi s ON s.id_siklus = sl.id_siklus
                 ORDER  BY l.kode_sel, s.waktu_mulai DESC""")
             return {b["kode_sel"]: b for b in k.fetchall()}
-
-
-class KoreksiPengamatanRepository:
-    """Akses tabel koreksi_pengamatan (jejak audit tindakan admin)."""
-    def catat(self, s, id_pengamatan, id_pengguna, tindakan, kolom_diubah,
-              nilai_lama, nilai_baru, alasan):
-        """Menyimpan satu catatan koreksi beserta nilai lama dan barunya."""
-        with s.cursor() as k:
-            k.execute("""
-                INSERT INTO koreksi_pengamatan (
-                    id_pengamatan, id_pengguna, tindakan, kolom_diubah,
-                    nilai_lama, nilai_baru, alasan)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                RETURNING id_koreksi, waktu_koreksi""",
-                      (id_pengamatan, id_pengguna, tindakan, kolom_diubah,
-                       nilai_lama, nilai_baru, alasan))
-            return k.fetchone()
-
-    def riwayat(self, s, batas=100):
-        """Riwayat koreksi terbaru beserta nama admin dan sel terkait."""
-        with s.cursor() as k:
-            k.execute("""
-                SELECT kp.id_koreksi, kp.id_pengamatan, l.kode_sel,
-                       p.waktu AS waktu_pengamatan, u.nama_lengkap,
-                       kp.tindakan, kp.kolom_diubah, kp.nilai_lama,
-                       kp.nilai_baru, kp.alasan, kp.waktu_koreksi
-                FROM   koreksi_pengamatan kp
-                JOIN   pengamatan p ON p.id_pengamatan = kp.id_pengamatan
-                JOIN   lokasi l     ON l.id_lokasi = p.id_lokasi
-                JOIN   pengguna u   ON u.id_pengguna = kp.id_pengguna
-                ORDER  BY kp.waktu_koreksi DESC LIMIT %s""", (batas,))
-            return k.fetchall()

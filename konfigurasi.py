@@ -17,9 +17,6 @@ PG = {
 FOLDER_MODEL = Path(os.getenv("FOLDER_MODEL", ""))
 FOLDER_MODEL_ASLI = Path(os.getenv("FOLDER_MODEL_ASLI", ""))
 
-# Berkas ambang penandaan anomali, hasil SQL/08_hitung_ambang_anomali.sql.
-BERKAS_AMBANG = Path(os.getenv(
-    "BERKAS_AMBANG", str(Path(__file__).resolve().parent.parent / "SQL" / "ambang_anomali.json")))
 VERSI_MODEL = os.getenv("VERSI_MODEL", "stacking-s2-20260731")
 
 # Menit keberangkatan penjadwal tiap jam. Bukan menit nol: arsip Open-Meteo

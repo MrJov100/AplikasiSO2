@@ -84,7 +84,7 @@ def koneksi_kolam():
 
     Koneksi dari kolam dipakai ulang, jadi transaksi permintaan sebelumnya tidak
     boleh menetes ke permintaan berikutnya: rollback di akhir membuang perubahan
-    yang belum di-commit. Jalur yang memang menulis (koreksi, sinkronisasi)
+    yang belum di-commit. Jalur yang memang menulis (sinkronisasi)
     sudah memanggil commit sendiri, sehingga rollback di sini tidak
     membatalkannya.
     """
@@ -105,12 +105,6 @@ SELECT p.id_pengamatan, p.waktu, p.so2, p.suhu, p.kelembapan, p.titik_embun,
 FROM   pengamatan p
 JOIN   lokasi l ON l.id_lokasi = p.id_lokasi
 WHERE  l.kode_sel = %(kode)s
-  -- Yang dikeluarkan dari pembentukan lag HANYA baris berstatus
-  -- 'dikecualikan', yaitu keputusan admin. Baris 'anomali' tetap dipakai:
-  -- naskah Subbab 2.1 menyebut nilai tidak wajar "ditandai untuk ditinjau
-  -- oleh admin", bukan langsung dibuang. Membuang otomatis juga akan
-  -- menghentikan prediksi tiga jam setiap kali satu baris tertandai.
-  AND  p.status <> 'dikecualikan'
   AND  (%(batas)s::timestamp IS NULL OR p.waktu <= %(batas)s::timestamp)
 ORDER  BY p.waktu DESC
 LIMIT  %(jumlah)s
@@ -216,8 +210,8 @@ RETURNING id_siklus
 SQL_RINCIAN = """
 INSERT INTO sinkronisasi_lokasi (
     id_siklus, id_lokasi, waktu_data_terakhir, jumlah_baris_masuk,
-    jumlah_baris_diperbarui, jumlah_anomali, status, pesan_galat, durasi_ms)
-SELECT %(id_siklus)s, l.id_lokasi, %(waktu_terakhir)s, 0, 0, 0,
+    jumlah_baris_diperbarui, status, pesan_galat, durasi_ms)
+SELECT %(id_siklus)s, l.id_lokasi, %(waktu_terakhir)s, 0, 0,
        %(status)s, %(pesan)s, 0
 FROM   lokasi l WHERE l.kode_sel = %(kode)s
 RETURNING id_sinkronisasi
@@ -228,7 +222,6 @@ UPDATE sinkronisasi_lokasi
 SET    waktu_data_terakhir      = %(waktu_terakhir)s,
        jumlah_baris_masuk       = %(masuk)s,
        jumlah_baris_diperbarui  = %(diperbarui)s,
-       jumlah_anomali           = %(anomali)s,
        status                   = %(status)s,
        pesan_galat              = %(pesan)s,
        durasi_ms                = %(durasi)s
@@ -289,20 +282,19 @@ ALTER TABLE siklus_sinkronisasi
 # membawa xmax bukan nol. Itu cara membedakan sisip dan perbarui dalam satu
 # pernyataan.
 #
-# Kolom status dan alasan_anomali TIDAK ditimpa bila status yang tersimpan
-# 'dikecualikan'. Nilai itu hanya pernah disetel admin lewat KOREKSI_PENGAMATAN,
-# dan penarikan berkala tidak boleh menghapus keputusan manusia. Status
-# 'anomali' boleh dihitung ulang karena itu keputusan sistem.
+# Nilai disimpan persis seperti yang dikirim sumber. Revisi arsip Open-Meteo
+# untuk jam yang sama menimpa nilai lama, sama seperti data latih yang ditarik
+# dari arsip yang sudah final.
 SQL_UPSERT_PENGAMATAN = """
 INSERT INTO pengamatan (
     id_lokasi, waktu, id_sinkronisasi, so2, so2_mentah, suhu, kelembapan,
     titik_embun, curah_hujan, tekanan_permukaan, tutupan_awan,
-    kecepatan_angin, arah_angin, status, alasan_anomali, diperbarui_pada)
+    kecepatan_angin, arah_angin, diperbarui_pada)
 VALUES (
     %(id_lokasi)s, %(waktu)s, %(id_sinkronisasi)s, %(so2)s, %(so2_mentah)s,
     %(suhu)s, %(kelembapan)s, %(titik_embun)s, %(curah_hujan)s,
     %(tekanan_permukaan)s, %(tutupan_awan)s, %(kecepatan_angin)s,
-    %(arah_angin)s, %(status)s, %(alasan_anomali)s,
+    %(arah_angin)s,
     (now() AT TIME ZONE 'Asia/Jakarta'))
 ON CONFLICT (id_lokasi, waktu) DO UPDATE SET
     id_sinkronisasi   = EXCLUDED.id_sinkronisasi,
@@ -316,19 +308,8 @@ ON CONFLICT (id_lokasi, waktu) DO UPDATE SET
     tutupan_awan      = EXCLUDED.tutupan_awan,
     kecepatan_angin   = EXCLUDED.kecepatan_angin,
     arah_angin        = EXCLUDED.arah_angin,
-    status            = CASE WHEN pengamatan.status = 'dikecualikan'
-                             THEN pengamatan.status ELSE EXCLUDED.status END,
-    alasan_anomali    = CASE WHEN pengamatan.status = 'dikecualikan'
-                             THEN pengamatan.alasan_anomali
-                             ELSE EXCLUDED.alasan_anomali END,
     diperbarui_pada   = (now() AT TIME ZONE 'Asia/Jakarta')
 RETURNING (xmax = 0) AS disisipkan
-"""
-
-SQL_SO2_SEBELUM = """
-SELECT p.so2
-FROM   pengamatan p JOIN lokasi l ON l.id_lokasi = p.id_lokasi
-WHERE  l.kode_sel = %(kode)s AND p.waktu = %(waktu)s
 """
 
 SQL_ID_LOKASI = "SELECT id_lokasi FROM lokasi WHERE kode_sel = %(kode)s"
@@ -342,14 +323,6 @@ def id_lokasi(sambungan, kode_sel):
     if not b:
         raise RuntimeError(f"Sel {kode_sel} tidak ada di tabel LOKASI")
     return b["id_lokasi"]
-
-
-def so2_pada(sambungan, kode_sel, waktu):
-    """Nilai SO2 satu jam tertentu, atau None. Dipakai lapis 5 untuk jam pertama."""
-    with sambungan.cursor() as k:
-        k.execute(SQL_SO2_SEBELUM, {"kode": kode_sel, "waktu": waktu})
-        b = k.fetchone()
-    return float(b["so2"]) if b else None
 
 
 def mulai_siklus(sambungan, pemicu="penjadwal", id_pengguna=None):
@@ -369,12 +342,12 @@ def buka_rincian(sambungan, id_siklus, kode_sel):
 
 
 def tutup_rincian(sambungan, id_sinkronisasi, waktu_terakhir, masuk, diperbarui,
-                  anomali, status, pesan, durasi):
+                  status, pesan, durasi):
     """Menutup rincian sinkronisasi satu sel dengan jumlah baris, status, pesan, dan durasi akhirnya."""
     with sambungan.cursor() as k:
         k.execute(SQL_PERBARUI_RINCIAN, {
             "id_sinkronisasi": id_sinkronisasi, "waktu_terakhir": waktu_terakhir,
-            "masuk": masuk, "diperbarui": diperbarui, "anomali": anomali,
+            "masuk": masuk, "diperbarui": diperbarui,
             "status": status, "pesan": pesan, "durasi": durasi})
 
 
@@ -504,42 +477,11 @@ def upsert_pengamatan(sambungan, baris):
 
 
 # ============================================================================
-#  PERLINDUNGAN NILAI YANG DIKOREKSI ADMIN
-# ============================================================================
-
-# Baris yang nilainya pernah diubah admin lewat tindakan 'ubah_nilai' TIDAK
-# boleh ditimpa penarikan berkala. Tanpa ini, koreksi admin akan lenyap pada
-# siklus berikutnya — justru pada jendela tiga hari terakhir, yaitu jam-jam yang
-# paling mungkin sedang ditinjau.
-SQL_JAM_DIKOREKSI = """
-SELECT DISTINCT p.waktu
-FROM   koreksi_pengamatan k
-JOIN   pengamatan p ON p.id_pengamatan = k.id_pengamatan
-JOIN   lokasi l     ON l.id_lokasi = p.id_lokasi
-WHERE  l.kode_sel = %(kode)s
-  AND  k.tindakan = 'ubah_nilai'
-  AND  p.waktu >= %(sejak)s
-"""
-
-
-def jam_dikoreksi(sambungan, kode_sel, sejak):
-    """Himpunan jam yang nilainya pernah dikoreksi admin, sejak waktu tertentu."""
-    with sambungan.cursor() as k:
-        k.execute(SQL_JAM_DIKOREKSI, {"kode": kode_sel, "sejak": sejak})
-        return {b["waktu"] for b in k.fetchall()}
-
-
-# ============================================================================
 #  PENGISIAN NILAI AKTUAL PADA PREDIKSI
 # ============================================================================
 
 # Satu pernyataan berbasis himpunan, bukan pengulangan per baris. Indeks parsial
 # ix_prediksi_aktual_kosong dipasang sejak Fase 2 khusus untuk kueri ini.
-#
-# Pengamatan berstatus 'dikecualikan' TETAP diisi supaya Halaman Riwayat Prediksi
-# menampilkan nilainya. Yang menyaringnya adalah kueri metrik di bawah, bukan
-# pengisian ini — dengan begitu tidak ada informasi yang hilang sementara
-# MAE/RMSE operasional tetap bersih.
 SQL_ISI_AKTUAL = """
 UPDATE prediksi p
 SET    nilai_aktual = o.so2
@@ -548,7 +490,7 @@ WHERE  o.id_lokasi = p.id_lokasi
   AND  o.waktu     = p.waktu_prediksi
   AND  p.nilai_aktual IS NULL
 RETURNING p.id_prediksi, p.id_lokasi, p.waktu_prediksi,
-          p.nilai_so2, p.nilai_aktual, p.selisih, o.status AS status_pengamatan
+          p.nilai_so2, p.nilai_aktual, p.selisih
 """
 
 SQL_PREDIKSI_MENUNGGU = """
@@ -630,7 +572,6 @@ LEFT JOIN prediksi pp
       AND pp.waktu_prediksi = p.waktu_prediksi - INTERVAL '1 hour'
       AND pp.versi_model    = p.versi_model
 WHERE  p.nilai_aktual IS NOT NULL
-  AND  o.status <> 'dikecualikan'
   AND  p.versi_model = %(versi)s
 """
 

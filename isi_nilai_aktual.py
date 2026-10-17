@@ -9,13 +9,6 @@ sendiri karena ia generated column.
     python isi_nilai_aktual.py --simpan
     python isi_nilai_aktual.py --ketelitian
 
-PENGAMATAN YANG DIKECUALIKAN
-
-Nilai aktual TETAP diisi walaupun pengamatan jam itu berstatus 'dikecualikan',
-supaya Halaman Riwayat Prediksi tetap menampilkan angkanya. Yang menyaringnya
-adalah kueri ketelitian: membandingkan prediksi dengan nilai yang sudah dinilai
-salah oleh admin akan mengotori MAE dan RMSE operasional Bab 4.
-
 CATATAN UNTUK BAB 4
 
 Ketelitian di sini adalah ketelitian OPERASIONAL — prediksi yang benar-benar
@@ -42,7 +35,6 @@ def cetak_ketelitian(sambungan):
     jam_berbeda = int(k["jam_berbeda"] or 0)
     print(f"\nKetelitian operasional atas {k['n']} prediksi pada {jam_berbeda} jam berbeda")
     print(f"rentang {k['jam_awal']} - {k['jam_akhir']}")
-    print("(pengamatan berstatus 'dikecualikan' tidak diikutkan)")
     if int(k["n_tanpa_pendahulu"] or 0):
         print(f"{k['n_tanpa_pendahulu']} baris dikeluarkan: belum ada prediksi jam sebelumnya "
               "sebagai pembanding persistensi")
@@ -107,11 +99,11 @@ def main():
         else:
             print(f"\n{len(terisi)} prediksi terisi:\n")
             print(f"  {'id':>5}{'waktu prediksi':>22}{'prediksi':>11}"
-                  f"{'aktual':>10}{'selisih':>10}  status")
+                  f"{'aktual':>10}{'selisih':>10}")
             for b in terisi[:20]:
                 print(f"  {b['id_prediksi']:>5}{str(b['waktu_prediksi']):>22}"
                       f"{b['nilai_so2']:>11}{b['nilai_aktual']:>10}"
-                      f"{b['selisih']:>10}  {b['status_pengamatan']}")
+                      f"{b['selisih']:>10}")
             if len(terisi) > 20:
                 print(f"  ... dan {len(terisi)-20} lagi")
 

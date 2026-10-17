@@ -67,8 +67,7 @@ export default function RiwayatPrediksi() {
                 Dihitung dari {telisik.n} prediksi pada{" "}
                 <b>{telisik.jam_berbeda} jam berbeda</b>, rentang{" "}
                 {jam(telisik.jam_awal)} – {jam(telisik.jam_akhir)}. Prediksi
-                dari versi model uji dan jam berstatus <i>dikecualikan</i> tidak
-                diikutkan.
+                dari versi model uji tidak diikutkan.
                 {telisik.n_tanpa_pendahulu > 0 && (
                   <>
                     {" "}
@@ -213,7 +212,7 @@ export default function RiwayatPrediksi() {
                     // apalagi dihapus. Menghapus catatan yang hasilnya buruk demi
                     // kerapian adalah hal yang paling sulit dipertanggungjawabkan
                     // saat sidang; yang benar adalah menjelaskan mengapa sebuah
-                    // baris dikecualikan, dan membiarkannya tetap terlihat.
+                    // baris tidak dihitung, dan membiarkannya tetap terlihat.
                     <tr
                       key={p.id_prediksi}
                       style={

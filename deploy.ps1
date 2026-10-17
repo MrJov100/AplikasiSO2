@@ -74,8 +74,8 @@ if ($Backend) {
     Tahap "Backend: bangun image dan deploy ke Cloud Run ($Layanan)"
     Push-Location $Akar
     try {
-        if (-not (Test-Path ".\model_portabel") -or -not (Test-Path ".\data\ambang_anomali.json")) {
-            Gagal "folder model_portabel atau data\ambang_anomali.json tidak ada. Salin dulu sesuai panduan."
+        if (-not (Test-Path ".\model_portabel")) {
+            Gagal "folder model_portabel tidak ada. Salin dulu sesuai panduan."
         }
 
         # Pengaturan lain (memori, VPC, variabel, secret) tetap dari revisi sebelumnya.

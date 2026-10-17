@@ -9,7 +9,6 @@ Susunan berlapis:
   Pendukung   -> berkas di akar folder:
         model.py        pembangunan fitur, model stacking, kategori kualitas udara
         penarikan.py    klien Open-Meteo
-        validasi.py     validasi pengamatan
         penjadwal.py    penjadwal sinkronisasi
 
 Layanan mengakses basis data hanya lewat repositori.

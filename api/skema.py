@@ -18,7 +18,7 @@ class Lokasi(BaseModel):
 
 
 class Pengamatan(BaseModel):
-    """Satu baris pengamatan per jam: SO2, variabel meteorologi, dan status kualitas datanya."""
+    """Satu baris pengamatan per jam: SO2 dan variabel meteorologi."""
     id_pengamatan: int
     kode_sel: str
     waktu: datetime
@@ -31,15 +31,12 @@ class Pengamatan(BaseModel):
     tutupan_awan: float
     kecepatan_angin: float
     arah_angin: float
-    status: str
-    alasan_anomali: Optional[str] = None
 
 
 class TitikRiwayat(BaseModel):
     """Satu titik pada grafik riwayat SO2."""
     waktu: datetime
     so2: float
-    status: str
 
 
 class Prediksi(BaseModel):
@@ -88,7 +85,6 @@ class StatusSel(BaseModel):
     tertinggal_jam: Optional[int] = None
     mutakhir: bool
     jumlah_pengamatan: int
-    jumlah_anomali: int
     sinkronisasi_terakhir: Optional[datetime] = None
     status_sinkronisasi: Optional[str] = None
     pesan_galat: Optional[str] = None
@@ -148,27 +144,3 @@ class ProfilPengguna(BaseModel):
     aktif: bool
     terakhir_masuk: Optional[datetime] = None
     dibuat_pada: datetime
-
-
-class PermintaanKoreksi(BaseModel):
-    """Isian tindakan koreksi admin atas satu pengamatan."""
-    id_pengamatan: int
-    tindakan: str                      # tandai_anomali|kecualikan|pulihkan|ubah_nilai
-    alasan: str
-    kolom_diubah: Optional[str] = None
-    nilai_baru: Optional[float] = None
-
-
-class Koreksi(BaseModel):
-    """Satu catatan jejak audit koreksi pengamatan."""
-    id_koreksi: int
-    id_pengamatan: int
-    kode_sel: str
-    waktu_pengamatan: datetime
-    nama_lengkap: str
-    tindakan: str
-    kolom_diubah: Optional[str] = None
-    nilai_lama: Optional[float] = None
-    nilai_baru: Optional[float] = None
-    alasan: str
-    waktu_koreksi: datetime

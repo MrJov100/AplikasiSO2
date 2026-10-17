@@ -2,10 +2,8 @@
 
 Layanan memanggil repositori dan modul pendukung; tidak menulis SQL sendiri.
 """
-import json
 import sys
 from datetime import timedelta
-from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
@@ -19,8 +17,8 @@ import segarkan_pengamatan as sp                          # noqa: E402
 from api import repositori as repo                        # noqa: E402
 from api import keamanan                                  # noqa: E402
 from konfigurasi import (AMBANG_KATEGORI, BAKU_MUTU_1_JAM,       # noqa: E402
-                         BATAS_KEMUTAKHIRAN_JAM, FOLDER_MODEL,
-                         KODE_SEL, KOLOM_DB_KE_MODEL, VERSI_MODEL)
+                         BATAS_KEMUTAKHIRAN_JAM,
+                         KODE_SEL, VERSI_MODEL)
 
 
 def _kemutakhiran(waktu_terakhir):
@@ -33,34 +31,6 @@ def _kemutakhiran(waktu_terakhir):
     return {"waktu_data_terakhir": waktu_terakhir,
             "tertinggal_jam": max(0, tertinggal),
             "mutakhir": tertinggal <= BATAS_KEMUTAKHIRAN_JAM}
-
-
-# Variabel meteorologi yang lolos seleksi mutual information BERBEDA tiap sel,
-# jadi rincian pengamatan pada halaman Monitoring tidak perlu menampilkan
-# kesembilannya untuk setiap baris. Sumber kebenarannya metadata_model.json --
-# bukan daftar yang ditulis ulang di antarmuka, yang akan usang begitu model
-# dilatih kembali dengan hasil seleksi yang berbeda.
-_MODEL_KE_DB = {model: db for db, model in KOLOM_DB_KE_MODEL.items()}
-
-
-@lru_cache(maxsize=1)
-def variabel_model_per_sel():
-    """Kolom basis data yang dipakai model tiap sel, SO2 termasuk.
-
-    Peta kosong berarti metadata model tidak terbaca. Itu bukan galat yang
-    pantas menggagalkan halaman Monitoring: antarmuka menanggapinya dengan
-    menampilkan kesembilan variabel, yaitu perilaku sebelum penyaringan ini
-    ada. Lebih baik berlebih daripada menyembunyikan nilai yang dibutuhkan.
-    """
-    try:
-        berkas = FOLDER_MODEL / "metadata_model.json"
-        meta = json.loads(berkas.read_text(encoding="utf-8"))
-    except (OSError, ValueError, TypeError):
-        return {}
-    return {kode: ["so2"] + [_MODEL_KE_DB[v]
-                             for v in rinci.get("variabel_terpilih", [])
-                             if v in _MODEL_KE_DB]
-            for kode, rinci in meta.items()}
 
 
 class LayananLokasi:
@@ -194,11 +164,10 @@ class LayananSinkronisasi:
     satu controller berpasangan dengan satu layanan."""
 
     def __init__(self):
-        """Menyiapkan repositori pengamatan, sinkronisasi, siklus, dan koreksi."""
+        """Menyiapkan repositori pengamatan, sinkronisasi, dan siklus."""
         self.rp = repo.PengamatanRepository()
         self.rsl = repo.SinkronisasiLokasiRepository()
         self.rs = repo.SiklusSinkronisasiRepository()
-        self.rk = repo.KoreksiPengamatanRepository()
 
     def status(self, s):
         """Ringkasan status data dan sinkronisasi tiap sel untuk Modul Monitoring."""
@@ -211,7 +180,6 @@ class LayananSinkronisasi:
                 "kode_sel": b["kode_sel"], "nama": b["nama"],
                 **_kemutakhiran(b["waktu_data_terakhir"]),
                 "jumlah_pengamatan": b["jumlah_pengamatan"],
-                "jumlah_anomali": b["jumlah_anomali"],
                 "sinkronisasi_terakhir": sk.get("waktu_mulai"),
                 "status_sinkronisasi": sk.get("status"),
                 "pesan_galat": sk.get("pesan_galat")})
@@ -220,54 +188,6 @@ class LayananSinkronisasi:
     def siklus_terakhir(self, s, batas=20):
         """Siklus sinkronisasi terbaru, paling baru lebih dulu."""
         return self.rs.terakhir(s, batas)
-
-    def anomali(self, s, batas=200):
-        """Pengamatan yang berstatus bukan 'sah'.
-
-        Tiap baris dilengkapi variabel_model: kolom yang benar-benar dipakai
-        model sel itu. Antarmuka memakainya untuk membatasi rincian pengamatan
-        pada variabel yang relevan bagi sel yang bersangkutan.
-        """
-        peta = variabel_model_per_sel()
-        baris = self.rp.daftar_anomali(s, batas)
-        for b in baris:
-            b["variabel_model"] = peta.get(b["kode_sel"], [])
-        return baris
-
-    def riwayat_koreksi(self, s, batas=100):
-        """Jejak audit koreksi admin terbaru."""
-        return self.rk.riwayat(s, batas)
-
-    def koreksi(self, s, id_pengguna, permintaan):
-        """Catat tindakan admin atas satu pengamatan, sekaligus jejak auditnya."""
-        p = self.rp.cari(s, permintaan.id_pengamatan)
-        if not p:
-            raise ValueError("Pengamatan tidak ditemukan")
-
-        tindakan = permintaan.tindakan
-        nilai_lama = None
-        kolom = None
-
-        if tindakan == "tandai_anomali":
-            self.rp.ubah_status(s, p["id_pengamatan"], "anomali", permintaan.alasan[:100])
-        elif tindakan == "kecualikan":
-            self.rp.ubah_status(s, p["id_pengamatan"], "dikecualikan", permintaan.alasan[:100])
-        elif tindakan == "pulihkan":
-            self.rp.ubah_status(s, p["id_pengamatan"], "sah", None)
-        elif tindakan == "ubah_nilai":
-            kolom = permintaan.kolom_diubah
-            if not kolom or permintaan.nilai_baru is None:
-                raise ValueError("ubah_nilai memerlukan kolom_diubah dan nilai_baru")
-            nilai_lama = float(p[kolom])
-            self.rp.ubah_nilai(s, p["id_pengamatan"], kolom, permintaan.nilai_baru)
-        else:
-            raise ValueError(f"Tindakan tidak dikenal: {tindakan}")
-
-        hasil = self.rk.catat(s, p["id_pengamatan"], id_pengguna, tindakan,
-                              kolom, nilai_lama, permintaan.nilai_baru,
-                              permintaan.alasan[:255])
-        s.commit()
-        return hasil
 
     def jalankan_manual(self, s, id_pengguna):
         """Sinkronisasi ulang atas permintaan admin (naskah Subbab 2.1.1).
@@ -382,7 +302,7 @@ class LayananSinkronisasi:
 
         # Hasil langkah 2 dan 3 ikut dikembalikan supaya dialog Monitoring dapat
         # melaporkan prediksi, bukan hanya jumlah sel yang tertarik. Kunci lama
-        # ('berhasil', 'gagal', 'anomali', ...) dipertahankan apa adanya agar
+        # ('berhasil', 'gagal', ...) dipertahankan apa adanya agar
         # pemakai tanggapan ini yang sudah ada tidak berubah artinya.
         return {**hasil, "status": status, "prediksi_berhasil": berhasil,
                 "prediksi_gagal": gagal, "aktual_terisi": terisi,
@@ -400,11 +320,7 @@ class LayananRiwayat:
         return self.r.riwayat(s, kode_sel, batas, hanya_terisi, VERSI_MODEL)
 
     def ketelitian(self, s):
-        """Menghitung MAE dan RMSE operasional.
-
-        Pengamatan berstatus 'dikecualikan' disaring di tingkat kueri: galat
-        terhadap nilai yang sudah dinilai salah admin tidak bermakna.
-        """
+        """Menghitung MAE dan RMSE operasional."""
         k = bd.ketelitian_operasional(s)
         if not k or not k["n"]:
             return {"n": 0}

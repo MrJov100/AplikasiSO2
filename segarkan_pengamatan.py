@@ -1,4 +1,4 @@
-"""Satu siklus sinkronisasi: tarik Open-Meteo, validasi, upsert ke PENGAMATAN.
+"""Satu siklus sinkronisasi: tarik Open-Meteo, upsert ke PENGAMATAN.
 
 Inilah inti Fase 3b tanpa penjadwalnya. Dijalankan tangan dulu, nanti dipanggil
 APScheduler setiap jam.
@@ -18,11 +18,14 @@ SELURUH jam yang ditarik (HARI_MUNDUR hari), bukan hanya jam terbaru. Kalau
 tidak, prakiraan yang sudah usang akan menetap selamanya dan dipakai sebagai
 lag.
 
-KEPUTUSAN ADMIN TIDAK DITIMPA
+DATA DISIMPAN APA ADANYA
 
-Baris berstatus 'dikecualikan' hanya pernah disetel admin. Upsert mempertahankan
-status dan alasannya. Status 'anomali' boleh dihitung ulang karena itu keputusan
-sistem, bukan manusia.
+Nilai pengamatan disimpan persis seperti yang dikirim sumber, setelah
+pra-pemrosesan yang sama dengan saat pelatihan (pemangkasan SO2 negatif menjadi
+nol, dilakukan di penarikan.py). Tidak ada penandaan maupun perubahan nilai oleh
+sistem atau admin, sehingga perlakuan data saat operasional identik dengan saat
+model dilatih. Nilai yang mustahil secara fisika ditolak kekangan CHECK pada
+basis data.
 """
 import argparse
 import sys
@@ -32,12 +35,11 @@ import pandas as pd
 
 import basis_data as bd
 import penarikan as tarik
-import validasi as val
 from konfigurasi import HARI_MUNDUR, KODE_SEL, SEL_GRID
 
 
 def proses_sel(sambungan, kode_sel, id_siklus, simpan, batas_waktu=None):
-    """Tarik, validasi, dan simpan satu sel grid. Return dict ringkasan."""
+    """Tarik dan simpan satu sel grid. Return dict ringkasan."""
     mulai = time.monotonic()
     lintang, bujur, elevasi = SEL_GRID[kode_sel]
 
@@ -48,38 +50,10 @@ def proses_sel(sambungan, kode_sel, id_siklus, simpan, batas_waktu=None):
     idl = bd.id_lokasi(sambungan, kode_sel)
     id_sinkronisasi = bd.buka_rincian(sambungan, id_siklus, kode_sel) if simpan else None
 
-    # Baris yang nilainya pernah dikoreksi admin lewat 'ubah_nilai' dilewati:
-    # nilai yang tersimpan adalah milik admin, bukan milik sumber, dan menimpanya
-    # akan menghapus koreksi itu tanpa jejak.
-    dilindungi = bd.jam_dikoreksi(sambungan, kode_sel,
-                                  tabel.index[0].to_pydatetime())
-
-    # Lapis 5 membutuhkan SO2 jam sebelumnya. Untuk baris pertama jendela, jam
-    # itu ada di basis data, bukan di tabel yang baru ditarik.
-    sebelumnya = bd.so2_pada(sambungan, kode_sel,
-                             (tabel.index[0] - pd.Timedelta(hours=1)).to_pydatetime())
-
-    masuk = diperbarui = anomali = dilewati = 0
-    contoh = []
+    masuk = diperbarui = 0
     for waktu, b in tabel.iterrows():
-        if waktu.to_pydatetime() in dilindungi:
-            dilewati += 1
-            # Lanjutkan rantai lonjakan memakai nilai yang TERSIMPAN, bukan nilai
-            # dari API, karena nilai tersimpanlah yang dipakai model.
-            tersimpan = bd.so2_pada(sambungan, kode_sel, waktu.to_pydatetime())
-            sebelumnya = tersimpan if tersimpan is not None else sebelumnya
-            continue
-
         baris = {k: (None if pd.isna(b[k]) else float(b[k]))
                  for k in tabel.columns}
-        baris["waktu"] = waktu
-
-        status, alasan = val.periksa(kode_sel, baris, sebelumnya)
-        if status != "sah":
-            anomali += 1
-            if len(contoh) < 3:
-                contoh.append(f"{waktu} {alasan}")
-        sebelumnya = baris["so2"]
 
         if simpan:
             disisipkan = bd.upsert_pengamatan(sambungan, {
@@ -92,20 +66,18 @@ def proses_sel(sambungan, kode_sel, id_siklus, simpan, batas_waktu=None):
                 "tekanan_permukaan": baris["tekanan_permukaan"],
                 "tutupan_awan": baris["tutupan_awan"],
                 "kecepatan_angin": baris["kecepatan_angin"],
-                "arah_angin": baris["arah_angin"],
-                "status": status, "alasan_anomali": alasan})
+                "arah_angin": baris["arah_angin"]})
             masuk += disisipkan
             diperbarui += not disisipkan
 
     durasi = int((time.monotonic() - mulai) * 1000)
     if simpan:
         bd.tutup_rincian(sambungan, id_sinkronisasi, tabel.index[-1].to_pydatetime(),
-                         masuk, diperbarui, anomali, "berhasil", None, durasi)
+                         masuk, diperbarui, "berhasil", None, durasi)
 
     return {"kode_sel": kode_sel, "baris": len(tabel), "masuk": masuk,
-            "diperbarui": diperbarui, "anomali": anomali, "dilewati": dilewati,
-            "contoh": contoh, "waktu_terakhir": tabel.index[-1], "kisi": kisi,
-            "durasi_ms": durasi}
+            "diperbarui": diperbarui, "waktu_terakhir": tabel.index[-1],
+            "kisi": kisi, "durasi_ms": durasi}
 
 
 def jalankan_siklus(sambungan, daftar=None, simpan=True, batas=None,
@@ -126,10 +98,10 @@ def jalankan_siklus(sambungan, daftar=None, simpan=True, batas=None,
     if simpan:
         cetak(f"Siklus {id_siklus} dimulai (pemicu {pemicu})\n")
 
-    cetak(f"{'sel':<5}{'baris':>7}{'sisip':>7}{'perbarui':>10}{'anomali':>9}"
-          f"{'dilindungi':>12}{'ms':>7}  waktu terakhir")
+    cetak(f"{'sel':<5}{'baris':>7}{'sisip':>7}{'perbarui':>10}"
+          f"{'ms':>7}  waktu terakhir")
 
-    berhasil = gagal = total_anomali = total_dilewati = 0
+    berhasil = gagal = 0
     for kode in daftar:
         mulai_sel = time.monotonic()
         try:
@@ -147,13 +119,8 @@ def jalankan_siklus(sambungan, daftar=None, simpan=True, batas=None,
             else:
                 r = proses_sel(sambungan, kode, id_siklus, simpan, batas)
             berhasil += 1
-            total_anomali += r["anomali"]
-            total_dilewati += r["dilewati"]
             cetak(f"{kode:<5}{r['baris']:>7}{r['masuk']:>7}{r['diperbarui']:>10}"
-                  f"{r['anomali']:>9}{r['dilewati']:>12}{r['durasi_ms']:>7}"
-                  f"  {r['waktu_terakhir']}")
-            for c in r["contoh"]:
-                cetak(f"       -> {c}")
+                  f"{r['durasi_ms']:>7}  {r['waktu_terakhir']}")
         except Exception as e:                          # noqa: BLE001
             gagal += 1
             pesan = f"{type(e).__name__}: {e}"
@@ -186,15 +153,13 @@ def jalankan_siklus(sambungan, daftar=None, simpan=True, batas=None,
         if segel_status:
             status = bd.selesaikan_siklus(sambungan, id_siklus, berhasil, gagal)
             cetak(f"\nSiklus {id_siklus} selesai: {status} "
-                  f"({berhasil} berhasil, {gagal} gagal, {total_anomali} ditandai, "
-                  f"{total_dilewati} dilindungi)")
+                  f"({berhasil} berhasil, {gagal} gagal)")
         else:
             status = bd.selesaikan_tarikan(sambungan, id_siklus, berhasil, gagal)
             cetak(f"\nPenarikan siklus {id_siklus}: {status} "
-                  f"({berhasil} berhasil, {gagal} gagal, {total_anomali} ditandai, "
-                  f"{total_dilewati} dilindungi)")
+                  f"({berhasil} berhasil, {gagal} gagal)")
     return {"id_siklus": id_siklus, "status": status, "berhasil": berhasil,
-            "gagal": gagal, "anomali": total_anomali, "dilewati": total_dilewati}
+            "gagal": gagal}
 
 
 def main():
@@ -227,8 +192,7 @@ def main():
         if a.simpan:
             sambungan.commit()
         else:
-            print(f"\nMode coba-coba: tidak ada yang ditulis. "
-                  f"{hasil['anomali']} baris akan ditandai anomali. "
+            print("\nMode coba-coba: tidak ada yang ditulis. "
                   "Tambahkan --simpan untuk menulis.")
 
     return 1 if hasil["gagal"] else 0

@@ -1,323 +1,22 @@
-import { Fragment, useEffect, useState } from "react";
-import { panggil, angka, jam } from "../api.js";
+import { useEffect, useState } from "react";
+import { panggil, jam } from "../api.js";
 import { Memuat, Galat, Sorot, Halaman } from "../komponen/Umum.jsx";
 
 // Jumlah baris riwayat sinkronisasi per halaman.
 const PER_HALAMAN = 10;
 
-// Kolom pengamatan yang boleh dikoreksi admin: nama tampilan, satuan, dan
-// jumlah desimal yang wajar. Urutannya mengikuti urutan kolom pada tabel
-// pengamatan, bukan urutan kepentingan.
-const KOLOM_PENGAMATAN = [
-  ["so2", "SO₂", "µg/m³", 2],
-  ["suhu", "Suhu", "°C", 1],
-  ["kelembapan", "Kelembapan", "%", 0],
-  ["titik_embun", "Titik embun", "°C", 1],
-  ["curah_hujan", "Curah hujan", "mm", 1],
-  ["tekanan_permukaan", "Tekanan", "hPa", 1],
-  ["tutupan_awan", "Tutupan awan", "%", 0],
-  ["kecepatan_angin", "Kecepatan angin", "m/s", 1],
-  ["arah_angin", "Arah angin", "°", 0],
-];
-
-// Penanda alasan validator -> kolom yang terlibat, dipakai menyorot nilai
-// penyebab pada rincian pengamatan. Teks alasannya dibentuk validasi.py. Satu
-// alasan dapat menunjuk lebih dari satu kolom karena lapis 2 memeriksa
-// HUBUNGAN antarvariabel, bukan nilai tunggal: "kelembapan tidak konsisten"
-// bisa berarti kelembapannya yang salah, atau suhu/titik embunnya.
-const ALASAN_KOLOM = [
-  ["titik embun melebihi suhu", ["titik_embun", "suhu"]],
-  ["kelembapan tidak konsisten", ["kelembapan", "suhu", "titik_embun"]],
-  ["tekanan di luar pita sel", ["tekanan_permukaan"]],
-  ["SO2 luar kebiasaan", ["so2"]],
-  ["lonjakan SO2", ["so2"]],
-  ["suhu luar kebiasaan", ["suhu"]],
-  ["kelembapan luar kebiasaan", ["kelembapan"]],
-  ["titik embun luar kebiasaan", ["titik_embun"]],
-  ["curah hujan luar kebiasaan", ["curah_hujan"]],
-  ["kecepatan angin luar kebiasaan", ["kecepatan_angin"]],
-];
-
-/** Kolom yang disebut alasan validator pada satu baris pengamatan.
- *
- * Hanya alasan yang MASIH TERBACA yang tersorot. Kolom alasan_anomali selebar
- * 100 karakter, jadi validasi.py memotong sisanya menjadi "(+N lagi)"; N
- * alasan yang terpotong itu tidak dapat dipetakan ke kolom. Status 'anomali'
- * yang ditulis admin lewat 'tandai_anomali' berisi teks bebas dan juga tidak
- * tersorot -- itu disengaja, bukan kegagalan pencocokan.
- */
-function kolomDisorot(alasan) {
-  const hasil = new Set();
-  if (!alasan) return hasil;
-  for (const [penanda, kolom] of ALASAN_KOLOM) {
-    if (alasan.includes(penanda)) kolom.forEach((k) => hasil.add(k));
-  }
-  return hasil;
-}
-
 // Tab pada halaman Monitoring.
 const TAB = [
   ["status", "Status per sel"],
-  ["anomali", "Pengamatan ditandai"],
-  ["koreksi", "Jejak koreksi"],
   ["siklus", "Riwayat sinkronisasi"],
 ];
 
-/** Panel tindakan admin atas satu pengamatan.
- *
- * Tidak memakai window.confirm: dialog peramban memblokir seluruh halaman, dan
- * alasan koreksi memang harus ditulis, bukan sekadar diklik "ya".
- */
-function PanelKoreksi({ baris, selesai, batal }) {
-  const [tindakan, setTindakan] = useState(
-    baris.status === "dikecualikan" ? "pulihkan" : "kecualikan",
-  );
-  const [alasan, setAlasan] = useState("");
-  const [kolom, setKolom] = useState("so2");
-  const [nilaiBaru, setNilaiBaru] = useState("");
-  const [galat, setGalat] = useState(null);
-  const [sedang, setSedang] = useState(false);
-
-  const [semua, setSemua] = useState(false);
-
-  const disorot = kolomDisorot(baris.alasan_anomali);
-
-  // Variabel model sel ini, dikirim server bersama barisnya (layanan.anomali).
-  // Himpunan kosong berarti metadata model tidak terbaca di server; dalam
-  // keadaan itu penyaringan dimatikan dan kesembilan variabel ditampilkan.
-  const variabelModel = new Set(baris.variabel_model || []);
-  const tanpaPeta = variabelModel.size === 0;
-
-  // Yang ditampilkan: SO2 selalu, variabel model sel ini, dan variabel apa pun
-  // yang disebut alasan validator baris ini. Yang terakhir itu syarat, bukan
-  // kemurahan hati: tekanan permukaan dan curah hujan DIPERIKSA validator
-  // (lapis 3 dan 4) tetapi tidak terpilih di sel mana pun, jadi tanpa
-  // pengecualian ini baris yang ditandai karena keduanya justru menyembunyikan
-  // kolom penyebabnya.
-  const tampil = (k) =>
-    semua || tanpaPeta || k === "so2" || variabelModel.has(k) || disorot.has(k);
-  const kolomTampil = KOLOM_PENGAMATAN.filter(([k]) => tampil(k));
-  const tersembunyi = KOLOM_PENGAMATAN.length - kolomTampil.length;
-  const adaLuarModel =
-    !tanpaPeta &&
-    kolomTampil.some(([k]) => k !== "so2" && !variabelModel.has(k));
-
-  // Mengirim tindakan koreksi ke server lalu memberi tahu induk bila berhasil.
-  async function kirim() {
-    setGalat(null);
-    setSedang(true);
-    try {
-      const isi = { id_pengamatan: baris.id_pengamatan, tindakan, alasan };
-      if (tindakan === "ubah_nilai") {
-        isi.kolom_diubah = kolom;
-        isi.nilai_baru = Number(nilaiBaru);
-      }
-      await panggil("/api/monitoring/koreksi", {
-        method: "POST",
-        body: JSON.stringify(isi),
-      });
-      selesai();
-    } catch (e) {
-      setGalat(e.message);
-      setSedang(false);
-    }
-  }
-
-  const siap =
-    alasan.trim().length >= 5 &&
-    (tindakan !== "ubah_nilai" || nilaiBaru !== "");
-
-  // Bila kolom yang sedang dipilih untuk diubah tidak lagi ditampilkan (tombol
-  // "variabel lain" ditutup kembali), pilihannya dikembalikan ke SO2: tidak ada
-  // nilai yang boleh diubah tanpa nilainya terlihat.
-  useEffect(() => {
-    if (!tampil(kolom)) {
-      setKolom("so2");
-      // Nilai yang sudah diketik milik kolom yang baru saja disembunyikan.
-      // Membiarkannya berarti angka tekanan bisa tersimpan sebagai SO2.
-      setNilaiBaru("");
-    }
-  }, [semua, kolom]);
-
-  // Tutup dengan Escape, seperti dialog Profil Admin.
-  useEffect(() => {
-    function padaTombol(e) {
-      if (e.key === "Escape" && !sedang) batal();
-    }
-    window.addEventListener("keydown", padaTombol);
-    return () => window.removeEventListener("keydown", padaTombol);
-  }, [batal, sedang]);
-
-  return (
-    <div
-      className="sorot-tirai"
-      onClick={() => !sedang && batal()}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Koreksi pengamatan"
-    >
-      <div
-        className="profil-kotak koreksi-kotak"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          className="profil-tutup"
-          onClick={batal}
-          disabled={sedang}
-          aria-label="Tutup"
-        >
-          ×
-        </button>
-        <div>
-          <h3>Koreksi pengamatan #{baris.id_pengamatan}</h3>
-          <p className="kecil">
-            {baris.kode_sel} · {jam(baris.waktu)} · status sekarang{" "}
-            <b>{baris.status}</b>
-          </p>
-          <p className="kecil">
-            Alasan validator: {baris.alasan_anomali || "—"}
-          </p>
-
-          {/* Nilai baris ini, bukan SO2 saja: enam dari delapan alasan
-              validator berasal dari variabel meteorologi, dan admin perlu
-              melihat nilai yang bersangkutan untuk memutuskan mana yang salah.
-              Yang ditampilkan dibatasi variabel milik sel ini supaya tidak ada
-              variabel yang tidak dipakai sel itu ikut memenuhi panel. Yang
-              disebut alasan validator diberi tanda; kolom yang sedang dipilih
-              untuk diubah diberi garis tepi. */}
-          <div className="rincian-pengamatan">
-            {kolomTampil.map(([k, nama, satuan, desimal]) => (
-              <div
-                key={k}
-                className={
-                  "rincian-medan" +
-                  (disorot.has(k) ? " ditandai" : "") +
-                  (tindakan === "ubah_nilai" && kolom === k ? " terpilih" : "") +
-                  (!tanpaPeta && k !== "so2" && !variabelModel.has(k)
-                    ? " bukan-model"
-                    : "")
-                }
-              >
-                <span className="rincian-nama">{nama}</span>
-                <span className="rincian-nilai">
-                  {angka(baris[k], desimal)}
-                  <small> {satuan}</small>
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {adaLuarModel && (
-            <p className="kecil rincian-catatan">
-              Nama bercetak miring bukan masukan model sel ini —
-              mengoreksinya memperbaiki status validasi, bukan hasil prediksi.
-            </p>
-          )}
-
-          {!tanpaPeta && (tersembunyi > 0 || semua) && (
-            <button
-              className="kecil rincian-ganti"
-              onClick={() => setSemua(!semua)}
-            >
-              {semua
-                ? "Tampilkan hanya variabel sel ini"
-                : `Tampilkan ${tersembunyi} variabel lain`}
-            </button>
-          )}
-
-          <label className="medan">
-            <span>Tindakan</span>
-            <select
-              value={tindakan}
-              onChange={(e) => setTindakan(e.target.value)}
-            >
-              <option value="kecualikan">
-                Kecualikan — tidak dipakai sebagai masukan model
-              </option>
-              <option value="pulihkan">
-                Pulihkan — kembalikan ke status sah
-              </option>
-              <option value="ubah_nilai">
-                Ubah nilai — perbaiki satu kolom
-              </option>
-              <option value="tandai_anomali">
-                Tandai anomali — tandai untuk ditinjau
-              </option>
-            </select>
-          </label>
-
-          {tindakan === "ubah_nilai" && (
-            <>
-              <label className="medan">
-                <span>Kolom</span>
-                <select
-                  value={kolom}
-                  onChange={(e) => setKolom(e.target.value)}
-                >
-                  {kolomTampil.map(([k, nama, satuan]) => (
-                    <option key={k} value={k}>
-                      {nama} ({satuan})
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="medan">
-                <span>Nilai baru (nilai sekarang {angka(baris[kolom])})</span>
-                <input
-                  type="number"
-                  step="any"
-                  value={nilaiBaru}
-                  onChange={(e) => setNilaiBaru(e.target.value)}
-                />
-              </label>
-            </>
-          )}
-
-          <label className="medan">
-            <span>Alasan (wajib, tersimpan sebagai jejak audit)</span>
-            <input
-              value={alasan}
-              onChange={(e) => setAlasan(e.target.value)}
-              placeholder="misalnya: lonjakan sesaat, tidak sejalan jam sekitarnya"
-            />
-          </label>
-
-          <div className="catatan info" style={{ marginBottom: ".75rem" }}>
-            {tindakan === "kecualikan" &&
-              "Barisnya tidak dihapus, hanya ditandai. Bila jam ini dibutuhkan sebagai lag t−1..t−3, prediksi jam tersebut akan ditolak dengan pesan jelas, bukan diam-diam memakai jam lain."}
-            {tindakan === "ubah_nilai" &&
-              "Baris yang pernah dikoreksi begini dilindungi: sinkronisasi berikutnya tidak akan menimpanya kembali dengan nilai dari sumber."}
-            {tindakan === "pulihkan" &&
-              "Status kembali menjadi sah dan barisnya kembali dipakai membentuk lag."}
-            {tindakan === "tandai_anomali" &&
-              "Status anomali berarti menunggu ditinjau. Baris anomali tetap dipakai membentuk lag — hanya keputusan manusia (kecualikan) yang memblokirnya."}
-          </div>
-
-          {galat && <Galat pesan={galat} />}
-
-          <div className="baris-kendali">
-            <button
-              className="utama"
-              disabled={!siap || sedang}
-              onClick={kirim}
-            >
-              {sedang ? "Menyimpan…" : "Simpan koreksi"}
-            </button>
-            <button onClick={batal}>Batal</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Halaman Monitoring Data (admin): status per sel, pengamatan ditandai, jejak
-// koreksi, riwayat sinkronisasi, serta pemicu sinkronisasi manual.
+// Halaman Monitoring Data (admin): status per sel, riwayat sinkronisasi, serta
+// pemicu sinkronisasi manual.
 export default function Monitoring() {
   const [tab, setTab] = useState("status");
   const [data, setData] = useState(null);
   const [galat, setGalat] = useState(null);
-  const [pilih, setPilih] = useState(null);
   const [sinkron, setSinkron] = useState(null);
   const [muatUlang, setMuatUlang] = useState(0);
   const [peringatan, setPeringatan] = useState(null);
@@ -326,15 +25,12 @@ export default function Monitoring() {
   // Endpoint yang dimuat untuk tiap tab.
   const JALUR = {
     status: "/api/monitoring/status",
-    anomali: "/api/monitoring/anomali?batas=300",
-    koreksi: "/api/monitoring/koreksi?batas=200",
     siklus: "/api/monitoring/siklus?batas=50",
   };
 
   useEffect(() => {
     setData(null);
     setGalat(null);
-    setPilih(null);
     setHalaman(1);
     panggil(JALUR[tab])
       .then(setData)
@@ -401,8 +97,7 @@ export default function Monitoring() {
       <div className="kepala">
         <h1>Monitoring Data</h1>
         <p>
-          Kemutakhiran data tiap sel, pengamatan yang ditandai validator, dan
-          jejak setiap koreksi admin.
+          Kemutakhiran data dan hasil sinkronisasi tiap sel grid.
         </p>
       </div>
 
@@ -525,7 +220,6 @@ export default function Monitoring() {
                 <th className="angka">Tertinggal</th>
                 <th>Mutakhir</th>
                 <th className="angka">Pengamatan</th>
-                <th className="angka">Ditandai</th>
                 <th>Sinkronisasi terakhir</th>
                 <th>Status</th>
               </tr>
@@ -551,7 +245,6 @@ export default function Monitoring() {
                     </span>
                   </td>
                   <td className="angka">{b.jumlah_pengamatan}</td>
-                  <td className="angka">{b.jumlah_anomali}</td>
                   <td>{jam(b.sinkronisasi_terakhir)}</td>
                   <td className="kecil">
                     {b.status_sinkronisasi || "—"}
@@ -565,108 +258,6 @@ export default function Monitoring() {
               ))}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {data && tab === "anomali" && (
-        <div className="kartu">
-          <p className="kecil">
-            {data.length} pengamatan berstatus bukan <i>sah</i>. Status{" "}
-            <i>anomali</i> berarti menunggu ditinjau dan <b>tetap</b> dipakai
-            membentuk lag; hanya <i>dikecualikan</i> yang memblokirnya.
-          </p>
-          <table>
-            <thead>
-              <tr>
-                <th>Sel</th>
-                <th>Waktu</th>
-                <th className="angka">SO₂</th>
-                <th>Status</th>
-                <th>Alasan validator</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((b) => (
-                <Fragment key={b.id_pengamatan}>
-                  <tr>
-                    <td>{b.kode_sel}</td>
-                    <td>{jam(b.waktu)}</td>
-                    <td className="angka">{angka(b.so2)}</td>
-                    <td>
-                      <span
-                        className={`lencana ${b.status === "dikecualikan" ? "abu" : "sedang"}`}
-                      >
-                        {b.status}
-                      </span>
-                    </td>
-                    <td className="kecil">{b.alasan_anomali || "—"}</td>
-                    <td>
-                      <button
-                        className="kecil"
-                        onClick={() => setPilih(b.id_pengamatan)}
-                      >
-                        Tinjau
-                      </button>
-                    </td>
-                  </tr>
-                  {pilih === b.id_pengamatan && (
-                    <PanelKoreksi
-                      baris={b}
-                      batal={() => setPilih(null)}
-                      selesai={() => {
-                        setPilih(null);
-                        setMuatUlang((n) => n + 1);
-                      }}
-                    />
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-          {data.length === 0 && (
-            <p className="kecil">Tidak ada pengamatan yang ditandai.</p>
-          )}
-        </div>
-      )}
-
-      {data && tab === "koreksi" && (
-        <div className="kartu">
-          <p className="kecil">
-            {data.length} koreksi tercatat. Barisnya tidak pernah dihapus —
-            inilah jejak audit tabel KOREKSI_PENGAMATAN.
-          </p>
-          <table>
-            <thead>
-              <tr>
-                <th>Waktu koreksi</th>
-                <th>Admin</th>
-                <th>Sel</th>
-                <th>Jam pengamatan</th>
-                <th>Tindakan</th>
-                <th>Kolom</th>
-                <th className="angka">Lama</th>
-                <th className="angka">Baru</th>
-                <th>Alasan</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((k) => (
-                <tr key={k.id_koreksi}>
-                  <td>{jam(k.waktu_koreksi)}</td>
-                  <td>{k.nama_lengkap}</td>
-                  <td>{k.kode_sel}</td>
-                  <td>{jam(k.waktu_pengamatan)}</td>
-                  <td>{k.tindakan}</td>
-                  <td className="kecil">{k.kolom_diubah || "—"}</td>
-                  <td className="angka">{angka(k.nilai_lama)}</td>
-                  <td className="angka">{angka(k.nilai_baru)}</td>
-                  <td className="kecil">{k.alasan}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {data.length === 0 && <p className="kecil">Belum ada koreksi.</p>}
         </div>
       )}
 

@@ -218,30 +218,6 @@ def siklus(batas: int = Query(20, ge=1, le=200), s=Depends(sambungan), pengguna=
     return l_sinkron.siklus_terakhir(s, batas)
 
 
-@monitoring.get("/anomali")
-def anomali(batas: int = Query(200, ge=1, le=1000),
-            s=Depends(sambungan), pengguna=admin):
-    """Daftar pengamatan yang berstatus anomali atau dikecualikan."""
-    return l_sinkron.anomali(s, batas)
-
-
-@monitoring.get("/koreksi")
-def riwayat_koreksi(batas: int = Query(100, ge=1, le=500),
-                    s=Depends(sambungan), pengguna=admin):
-    """Jejak audit koreksi yang pernah dilakukan admin atas data pengamatan."""
-    return l_sinkron.riwayat_koreksi(s, batas)
-
-
-@monitoring.post("/koreksi")
-def catat_koreksi(permintaan: skema.PermintaanKoreksi,
-                  s=Depends(sambungan), pengguna=admin):
-    """Mencatat tindakan admin (tandai, kecualikan, pulihkan, ubah nilai) atas satu pengamatan."""
-    try:
-        return l_sinkron.koreksi(s, pengguna["id_pengguna"], permintaan)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
 # Galat teknis yang tidak berarti apa pun bagi admin, dipetakan ke kalimat yang
 # menyebut apa yang terjadi dan apa langkah berikutnya. "InFailedSqlTransaction:
 # current transaction is aborted" khususnya hanyalah puing: ia muncul sesudah

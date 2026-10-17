@@ -730,14 +730,6 @@ button.tautan:hover {
   max-height: calc(100vh - 2rem);
   overflow-y: auto;
 }
-/* Dialog koreksi pengamatan (Monitoring): memakai kotak profil, tetapi lebih
-   lebar karena memuat formulir dan catatan penjelasan. */
-.profil-kotak.koreksi-kotak {
-  max-width: 560px;
-}
-.koreksi-kotak h3 {
-  margin: 0 2rem 0.3rem 0;
-}
 .profil-tutup {
   position: absolute;
   top: 0.55rem;
@@ -1153,75 +1145,6 @@ button.tautan:hover {
   padding: 0.5rem 1.1rem;
   font-size: 0.85rem;
   border-radius: 6px;
-}
-
-/* ---------- rincian pengamatan pada panel koreksi ---------- */
-/* Nilai variabel satu baris pengamatan, tampil saat admin meninjau. Tabel
-   "Pengamatan ditandai" sengaja hanya memuat identitas baris, SO2, status, dan
-   alasan; rinciannya diletakkan di sini supaya tabel tidak melebar oleh kolom
-   yang hanya relevan ketika satu baris sedang ditinjau.
-
-   Tiap medan berbingkai sendiri, bukan dipisahkan celah di atas latar --garis:
-   jumlah medannya berubah menurut sel (lima untuk sebagian besar sel, lebih
-   banyak bila validator menyebut variabel di luar model), sehingga baris
-   terakhir kisi sering tidak penuh dan sel kosongnya akan tampak sebagai kotak
-   kelabu bila latar belakangnya dipakai sebagai garis. */
-.rincian-pengamatan {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.4rem;
-  margin: 0.6rem 0 0.75rem;
-}
-.rincian-medan {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  padding: 0.4rem 0.55rem;
-  background: var(--putih);
-  border: 1px solid var(--garis);
-  border-radius: 6px;
-}
-.rincian-nama {
-  font-size: 0.72rem;
-  color: var(--abu);
-}
-.rincian-nilai {
-  font-size: 0.92rem;
-  font-variant-numeric: tabular-nums;
-}
-.rincian-nilai small {
-  font-size: 0.72rem;
-  color: var(--abu);
-}
-/* Bukan masukan model sel ini: tampil hanya karena disebut validator atau
-   karena admin membuka seluruh variabel. */
-.rincian-medan.bukan-model .rincian-nama {
-  font-style: italic;
-}
-/* Disebut alasan validator: inilah nilai yang patut dicurigai lebih dulu. */
-.rincian-medan.ditandai {
-  background: #fdf4e3;
-  border-color: #e8cf9a;
-}
-.rincian-medan.ditandai .rincian-nama {
-  color: var(--buruk);
-  font-weight: 600;
-}
-/* Sedang dipilih pada dropdown "Kolom": nilai inilah yang akan tertimpa. */
-.rincian-medan.terpilih {
-  border-color: var(--biru);
-  box-shadow: inset 0 0 0 1px var(--biru);
-}
-.rincian-catatan {
-  margin: 0 0 0.5rem;
-}
-.rincian-ganti {
-  margin-bottom: 0.9rem;
-}
-@media (max-width: 560px) {
-  .rincian-pengamatan {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 /* ---------- peta sebaran sel grid (Informasi Lokasi) ---------- */

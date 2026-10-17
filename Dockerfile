@@ -17,16 +17,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Berkas model portabel (10 x Gxx_bundel.joblib + Gxx_xgb.ubj) dan berkas ambang
-# anomali. Keduanya disalin ke folder proyek lebih dulu; lihat panduan deploy.
+# Berkas model portabel (10 x Gxx_bundel.joblib + Gxx_xgb.ubj), disalin ke folder
+# proyek lebih dulu; lihat panduan deploy.
 COPY model_portabel/ ./model_portabel/
-COPY data/ ./data/
 
 COPY *.py ./
 COPY api/ ./api/
 
-ENV FOLDER_MODEL=/app/model_portabel \
-    BERKAS_AMBANG=/app/data/ambang_anomali.json
+ENV FOLDER_MODEL=/app/model_portabel
 
 # Cloud Run mengisi PORT; bawaan 8080.
 CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8080}"]

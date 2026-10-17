@@ -67,8 +67,7 @@ permintaan `/api/**` ke Cloud Run, sehingga tidak ada persoalan lintas asal (COR
 | `jalankan_prediksi.py`           | membentuk prediksi satu atau semua sel                                                                                                                                            |
 | `uji_bandingkan.py`              | membandingkan jalur basis data dengan jalur Open-Meteo                                                                                                                            |
 | `penarikan.py`                   | penarikan Open-Meteo dengan percobaan ulang dan jeda menggandakan                                                                                                                 |
-| `validasi.py`                    | lima lapis validasi, ambang dibaca dari `ambang_anomali.json`                                                                                                                     |
-| `segarkan_pengamatan.py`         | satu siklus sinkronisasi: tarik, validasi, upsert                                                                                                                                 |
+| `segarkan_pengamatan.py`         | satu siklus sinkronisasi: tarik, upsert                                                                                                                                           |
 | `isi_nilai_aktual.py`            | isi `nilai_aktual` pada PREDIKSI, laporkan ketelitian operasional                                                                                                                 |
 | `penjadwal.py`                   | penjadwal per jam yang merangkai ketiga langkah                                                                                                                                   |
 | `buat_admin.py`                  | membuat akun admin pertama                                                                                                                                                        |
@@ -79,7 +78,6 @@ permintaan `/api/**` ke Cloud Run, sehingga tidak ada persoalan lintas asal (COR
 | `deploy.ps1`                     | skrip satu perintah untuk men-deploy frontend dan backend                                                                                                                         |
 | `.dockerignore`, `.gcloudignore` | berkas yang tidak ikut masuk ke citra dan ke unggahan build                                                                                                                       |
 | `model_portabel/`                | **tidak ada di Git.** Salinan 21 berkas model (`Gxx_bundel.joblib`, `Gxx_xgb.ubj`, `metadata_model.json`) yang dimasukkan ke citra Docker                                         |
-| `data/ambang_anomali.json`       | ambang penandaan anomali yang dibaca `validasi.py` di container                                                                                                                   |
 
 ---
 
@@ -254,8 +252,7 @@ python segarkan_pengamatan.py --simpan
 ```
 
 Satu siklus sinkronisasi penuh: menarik SO₂ dan delapan variabel meteorologi
-untuk kesepuluh sel, menerapkan lima lapis validasi, lalu meng-upsert ke tabel
-PENGAMATAN serta mencatat SIKLUS_SINKRONISASI dan SINKRONISASI_LOKASI.
+untuk kesepuluh sel, lalu meng-upsert ke tabel PENGAMATAN serta mencatat SIKLUS_SINKRONISASI dan SINKRONISASI_LOKASI.
 
 **Mengapa seluruh jendela ditulis ulang, bukan hanya jam terbaru.** Arsip
 Open-Meteo masih berubah untuk jam-jam terakhir: nilai yang ditarik sebelum
@@ -264,10 +261,11 @@ sebuah run selesai adalah prakiraan, dan diganti analisis kemudian. Pemeriksaan
 12.00 UTC, batas run 12z. Tanpa upsert seluruh jendela, prakiraan usang akan
 menetap selamanya dan dipakai sebagai lag.
 
-**Keputusan admin tidak ditimpa.** Baris berstatus `dikecualikan` hanya pernah
-disetel admin; upsert mempertahankan status dan alasannya, tetapi nilai
-pengukurannya tetap disegarkan. Status `anomali` dihitung ulang karena itu
-keputusan sistem.
+**Data disimpan apa adanya.** Nilai pengamatan disimpan persis seperti yang
+dikirim sumber, setelah pra-pemrosesan yang sama dengan saat pelatihan
+(pemangkasan SO₂ negatif menjadi nol). Tidak ada penandaan maupun perubahan
+nilai oleh sistem atau admin. Nilai yang mustahil secara fisika ditolak
+kekangan CHECK pada basis data.
 
 Jalankan dua kali: jalan kedua harus melaporkan `sisip 0` dan `perbarui` sebanyak
 jumlah barisnya — bukti upsert bekerja.
@@ -286,9 +284,7 @@ sendiri karena ia generated column.
 
 Laporan ketelitiannya memuat MAE dan RMSE operasional untuk stacking, XGBoost,
 Random Forest, dan baseline persistensi, beserta skill score — bahan langsung
-untuk Bab 4. Pengamatan berstatus `dikecualikan` tetap diisi nilai aktualnya
-supaya Halaman Riwayat Prediksi menampilkannya, tetapi disaring dari hitungan
-ketelitian.
+untuk Bab 4.
 
 **Jangan membuat prediksi massal ke belakang untuk mengisi tabel ini.** Prediksi
 yang dibentuk sekarang atas data yang sudah direvisi menjadi analisis akan
@@ -395,7 +391,7 @@ Untuk melihat tampilan baru dengan data produksi tanpa menjalankan API lokal,
 ubah sementara `target` proxy di `antarmuka/vite.config.js` ke alamat Cloud Run
 (`https://so2-api-532707674958.asia-southeast2.run.app`), lalu **kembalikan ke
 `http://127.0.0.1:8000`** sesudahnya. Ingat bahwa cara ini terhubung ke basis data
-produksi: jangan mengubah data (koreksi, sinkronisasi manual) saat mencobanya.
+produksi: jangan memicu sinkronisasi manual saat mencobanya.
 
 Untuk demonstrasi lokal dengan satu proses:
 
@@ -688,13 +684,12 @@ bila berbeda.
    }
    ```
 
-8. **Berkas yang dibutuhkan citra.** Salin model dan ambang anomali ke dalam
-   proyek (keduanya dibaca `Dockerfile`):
+8. **Berkas yang dibutuhkan citra.** Salin model ke dalam proyek (dibaca
+   `Dockerfile`):
 
    ```powershell
-   mkdir model_portabel, data
+   mkdir model_portabel
    Copy-Item "<folder>\Skenario2\model_portabel\*" .\model_portabel\
-   Copy-Item "<folder>\SQL\ambang_anomali.json" .\data\
    ```
 
 9. **Cloud Run service.** Memori 2 GiB **tidak cukup** untuk memuat kesepuluh model
