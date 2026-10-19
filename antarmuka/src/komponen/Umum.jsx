@@ -98,7 +98,7 @@ export function Halaman({ aktif, total, onUbah }) {
   );
 }
 
-/** Keterangan kemutakhiran data — dijanjikan naskah Subbab 2.1.1. */
+/** Keterangan kemutakhiran data */
 export function Kemutakhiran({ data }) {
   if (!data) return null;
   if (data.mutakhir) {

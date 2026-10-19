@@ -1,6 +1,4 @@
 # Versi dikunci persis seperti lingkungan pelatihan (ringkasan_skenario2.json).
-# Jangan dilonggarkan: joblib.load bisa berhasil tetapi menghasilkan angka
-# berbeda kalau versi pustakanya tidak sama.
 numpy==2.1.3
 pandas==2.2.3
 scikit-learn==1.6.1
@@ -12,7 +10,7 @@ python-dotenv
 requests
 apscheduler==3.10.*
 
-# Lapisan web (Fase 3c)
+# Lapisan web
 fastapi==0.115.*
 uvicorn[standard]==0.32.*
 pyjwt==2.10.*
