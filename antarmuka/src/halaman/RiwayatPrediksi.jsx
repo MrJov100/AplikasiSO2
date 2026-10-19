@@ -66,16 +66,7 @@ export default function RiwayatPrediksi() {
               <p className="kecil">
                 Dihitung dari {telisik.n} prediksi pada{" "}
                 <b>{telisik.jam_berbeda} jam berbeda</b>, rentang{" "}
-                {jam(telisik.jam_awal)} – {jam(telisik.jam_akhir)}. Prediksi
-                dari versi model uji tidak diikutkan.
-                {telisik.n_tanpa_pendahulu > 0 && (
-                  <>
-                    {" "}
-                    {telisik.n_tanpa_pendahulu} prediksi lain dikeluarkan karena
-                    belum ada prediksi jam sebelumnya sebagai pembanding
-                    persistensi.
-                  </>
-                )}
+                {jam(telisik.jam_awal)} – {jam(telisik.jam_akhir)}.
               </p>
               <table>
                 <thead>
@@ -268,13 +259,6 @@ export default function RiwayatPrediksi() {
                 Selisih dihitung sebagai nilai sebenarnya dikurangi prediksi
                 stacking. Tanda positif berarti sistem memperkirakan terlalu
                 rendah.
-              </p>
-              <p className="kecil">
-                Baris yang diredupkan tetap disimpan tetapi tidak masuk hitungan
-                ketelitian di atas. <i>Versi uji</i> menandai prediksi yang
-                dibentuk dengan versi model percobaan, termasuk prediksi yang
-                dibentuk ke belakang saat pengembangan — angkanya tidak mewakili
-                capaian sistem saat berjalan.
               </p>
             </div>
           );
