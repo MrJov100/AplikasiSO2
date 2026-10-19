@@ -51,6 +51,7 @@ export default function App() {
           <Route path="/riwayat" element={khususAdmin(<RiwayatPrediksi />)} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <footer className="kaki-halaman">© 2026 Selterra - Jovandi Todana</footer>
       </main>
     </div>
   )

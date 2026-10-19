@@ -173,8 +173,28 @@ p {
 
 .isi {
   flex: 1;
-  padding: 1.6rem 2rem 3rem;
+  padding: 1.6rem 2rem 1rem;
   overflow-x: auto;
+  display: flex;
+  flex-direction: column;
+}
+.isi > :not(.kaki-halaman) {
+  flex: 0 0 auto;
+}
+/* Kaki halaman: ringkas, menempel di dasar area isi. */
+.kaki-halaman {
+  margin-top: auto;
+  padding-top: 2rem;
+  text-align: center;
+  color: var(--abu);
+  font-size: 0.8rem;
+}
+.kaki-halaman::before {
+  content: "";
+  display: block;
+  width: 3rem;
+  margin: 0 auto 0.6rem;
+  border-top: 1px solid var(--garis);
 }
 .kepala {
   margin-bottom: 1.25rem;
