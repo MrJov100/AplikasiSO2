@@ -18,6 +18,7 @@ export default function RiwayatPrediksi() {
   const [galat, setGalat] = useState(null);
   const [halaman, setHalaman] = useState(1);
   const [info, setInfo] = useState(false);
+  const namaSel = Object.fromEntries(lokasi.map((l) => [l.kode_sel, l.nama]));
 
   useEffect(() => {
     panggil("/api/informasi/lokasi")
@@ -187,7 +188,7 @@ export default function RiwayatPrediksi() {
                   <tr>
                     <th>No</th>
                     <th>Untuk jam</th>
-                    <th>Sel</th>
+                    <th>Nama</th>
                     <th className="angka">Stacking</th>
                     <th className="angka">XGB</th>
                     <th className="angka">RF</th>
@@ -217,7 +218,7 @@ export default function RiwayatPrediksi() {
                     >
                       <td>{mulai + i + 1}</td>
                       <td>{jam(p.waktu_prediksi)}</td>
-                      <td>{p.kode_sel}</td>
+                      <td>{namaSel[p.kode_sel] ?? p.kode_sel}</td>
                       <td className="angka">{angka(p.nilai_so2)}</td>
                       <td className="angka">{angka(p.nilai_xgboost)}</td>
                       <td className="angka">{angka(p.nilai_random_forest)}</td>

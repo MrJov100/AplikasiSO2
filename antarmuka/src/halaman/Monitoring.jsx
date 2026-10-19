@@ -96,9 +96,7 @@ export default function Monitoring() {
     <>
       <div className="kepala">
         <h1>Monitoring Data</h1>
-        <p>
-          Kemutakhiran data dan hasil sinkronisasi tiap sel grid.
-        </p>
+        <p>Kemutakhiran data dan hasil sinkronisasi tiap sel grid.</p>
       </div>
 
       <div className="baris-kendali baris-monitoring">
@@ -219,7 +217,6 @@ export default function Monitoring() {
                 <th>Data terakhir</th>
                 <th className="angka">Tertinggal</th>
                 <th>Mutakhir</th>
-                <th className="angka">Pengamatan</th>
                 <th>Sinkronisasi terakhir</th>
                 <th>Status</th>
               </tr>
@@ -244,7 +241,6 @@ export default function Monitoring() {
                       {b.mutakhir ? "ya" : "tidak"}
                     </span>
                   </td>
-                  <td className="angka">{b.jumlah_pengamatan}</td>
                   <td>{jam(b.sinkronisasi_terakhir)}</td>
                   <td className="kecil">
                     {b.status_sinkronisasi || "—"}
