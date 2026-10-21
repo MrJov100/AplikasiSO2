@@ -5,7 +5,8 @@ import { Lencana, Memuat, Galat, Halaman } from "../komponen/Umum.jsx";
 // Halaman Riwayat Prediksi (admin). Menampilkan prediksi yang pernah dibentuk
 // beserta nilai sebenarnya yang menyusul, dan ketelitian operasionalnya.
 
-// Jumlah baris tabel per halaman.
+// Jumlah baris tabel per halaman. Baris diminta ke server per halaman
+// (paginasi sisi server), sehingga hanya halaman yang dibuka yang dimuat.
 const PER_HALAMAN = 10;
 
 // Komponen halaman Riwayat Prediksi: tabel prediksi vs nilai sebenarnya dan
@@ -13,7 +14,9 @@ const PER_HALAMAN = 10;
 export default function RiwayatPrediksi() {
   const [lokasi, setLokasi] = useState([]);
   const [sel, setSel] = useState("");
-  const [baris, setBaris] = useState(null);
+  // { total, baris } untuk halaman aktif; null selama halaman itu dimuat.
+  const [daftar, setDaftar] = useState(null);
+  const [memuat, setMemuat] = useState(true);
   const [telisik, setTelisik] = useState(null);
   const [galat, setGalat] = useState(null);
   const [halaman, setHalaman] = useState(1);
@@ -32,15 +35,42 @@ export default function RiwayatPrediksi() {
       .catch((e) => setGalat(e.message));
   }, []);
 
+  // Satu permintaan per halaman yang dibuka. Tanggapan yang tiba sesudah
+  // penyaring atau halaman berganti diabaikan, agar baris halaman lama tidak
+  // menimpa halaman yang sedang dilihat.
   useEffect(() => {
-    setBaris(null);
-    setHalaman(1);
-    const q = new URLSearchParams({ batas: "300" });
+    let batal = false;
+    // Data lama dipertahankan selama memuat agar tinggi halaman tidak runtuh
+    // dan posisi gulir tidak melompat ke atas; hanya tabel yang diredupkan.
+    setMemuat(true);
+    const q = new URLSearchParams({
+      halaman: String(halaman),
+      per_halaman: String(PER_HALAMAN),
+    });
     if (sel) q.set("kode_sel", sel);
     panggil(`/api/riwayat/prediksi?${q}`)
-      .then(setBaris)
-      .catch((e) => setGalat(e.message));
-  }, [sel]);
+      .then((d) => {
+        if (!batal) {
+          setDaftar(d);
+          setMemuat(false);
+        }
+      })
+      .catch((e) => {
+        if (!batal) {
+          setGalat(e.message);
+          setMemuat(false);
+        }
+      });
+    return () => {
+      batal = true;
+    };
+  }, [sel, halaman]);
+
+  // Mengganti penyaring selalu kembali ke halaman pertama.
+  function ubahSel(nilai) {
+    setSel(nilai);
+    setHalaman(1);
+  }
 
   return (
     <>
@@ -154,7 +184,7 @@ export default function RiwayatPrediksi() {
       )}
 
       <div className="baris-kendali">
-        <select value={sel} onChange={(e) => setSel(e.target.value)}>
+        <select value={sel} onChange={(e) => ubahSel(e.target.value)}>
           <option value="">Semua sel</option>
           {lokasi.map((l) => (
             <option key={l.kode_sel} value={l.kode_sel}>
@@ -164,25 +194,29 @@ export default function RiwayatPrediksi() {
         </select>
       </div>
 
-      {!baris && !galat && <Memuat />}
+      {!daftar && !galat && <Memuat />}
 
-      {baris &&
+      {daftar &&
         (() => {
           const totalHalaman = Math.max(
             1,
-            Math.ceil(baris.length / PER_HALAMAN),
+            Math.ceil(daftar.total / PER_HALAMAN),
           );
           const aktif = Math.min(halaman, totalHalaman);
           const mulai = (aktif - 1) * PER_HALAMAN;
-          const tampil = baris.slice(mulai, mulai + PER_HALAMAN);
+          const tampil = daftar.baris;
           return (
             <div className="kartu">
               <h3>Tabel Daftar Prediksi</h3>
-              <p className="kecil">
-                {baris.length} baris
-                {baris.length > 0 &&
-                  ` · menampilkan ${mulai + 1}–${mulai + tampil.length}`}
-              </p>
+              <p className="kecil">{daftar.total} baris</p>
+              <div
+                aria-busy={memuat}
+                style={{
+                  opacity: memuat ? 0.5 : 1,
+                  pointerEvents: memuat ? "none" : undefined,
+                  transition: "opacity .15s",
+                }}
+              >
               <table>
                 <thead>
                   <tr>
@@ -255,6 +289,7 @@ export default function RiwayatPrediksi() {
                   ))}
                 </tbody>
               </table>
+              </div>
               <Halaman aktif={aktif} total={totalHalaman} onUbah={setHalaman} />
               <p className="kecil" style={{ marginTop: ".6rem" }}>
                 Selisih dihitung sebagai nilai sebenarnya dikurangi prediksi

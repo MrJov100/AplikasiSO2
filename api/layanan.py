@@ -315,9 +315,12 @@ class LayananRiwayat:
         """Menyiapkan repositori prediksi."""
         self.r = repo.PrediksiRepository()
 
-    def riwayat(self, s, kode_sel, batas, hanya_terisi):
-        """Riwayat prediksi untuk versi model produksi, opsional hanya yang sudah punya nilai aktual."""
-        return self.r.riwayat(s, kode_sel, batas, hanya_terisi, VERSI_MODEL)
+    def riwayat(self, s, kode_sel, halaman, per_halaman, hanya_terisi):
+        """Satu halaman riwayat prediksi, opsional hanya yang sudah punya nilai aktual."""
+        hasil = self.r.riwayat(s, kode_sel, halaman, per_halaman, hanya_terisi,
+                               VERSI_MODEL)
+        return {"total": hasil["total"], "halaman": halaman,
+                "per_halaman": per_halaman, "baris": hasil["baris"]}
 
     def ketelitian(self, s):
         """Menghitung MAE dan RMSE operasional."""

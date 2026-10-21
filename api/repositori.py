@@ -115,9 +115,15 @@ class PrediksiRepository:
             baris = k.fetchall()
         return sorted(baris, key=lambda b: b["urutan_tampil"])
 
-    def riwayat(self, s, kode_sel=None, batas=200, hanya_terisi=False,
-                versi_model=VERSI_MODEL):
-        """Baris riwayat prediksi, beserta penanda apakah ikut dihitung.
+    def riwayat(self, s, kode_sel=None, halaman=1, per_halaman=10,
+                hanya_terisi=False, versi_model=VERSI_MODEL):
+        """Satu halaman baris riwayat prediksi beserta jumlah seluruh barisnya.
+
+        Paginasi dilakukan di SQL (LIMIT/OFFSET), sehingga peramban hanya
+        menerima baris untuk halaman yang sedang dibuka. Jumlah seluruh baris
+        dihitung dengan syarat WHERE yang sama agar navigasi halaman tepat.
+        Urutan diberi pemutus seri id_prediksi supaya OFFSET stabil: tanpa
+        itu, baris dengan waktu dan sel yang sama dapat berpindah halaman.
 
         Kolom `dihitung` memakai syarat yang SAMA PERSIS dengan SQL_KETELITIAN
         (nilai aktual ada, versi model produksi),
@@ -129,7 +135,17 @@ class PrediksiRepository:
         maupun untuk baris yang nilai aktualnya memang belum tiba — yang
         terakhir bukan pengecualian, hanya belum waktunya.
         """
+        param = {"sel": kode_sel, "terisi": hanya_terisi, "versi": versi_model,
+                 "batas": per_halaman, "lewati": (halaman - 1) * per_halaman}
         with s.cursor() as k:
+            k.execute("""
+                SELECT count(*) AS total
+                FROM   prediksi p
+                JOIN   lokasi l      ON l.id_lokasi = p.id_lokasi
+                WHERE  (%(sel)s::varchar IS NULL OR l.kode_sel = %(sel)s::varchar)
+                  AND  (NOT %(terisi)s OR p.nilai_aktual IS NOT NULL)
+                  AND  p.versi_model = %(versi)s""", param)
+            total = int(k.fetchone()["total"])
             k.execute("""
                 SELECT p.id_prediksi, l.kode_sel, l.nama AS nama_lokasi,
                        p.waktu_prediksi, p.waktu_dasar, p.nilai_so2,
@@ -146,11 +162,10 @@ class PrediksiRepository:
                 JOIN   lokasi l      ON l.id_lokasi = p.id_lokasi
                 WHERE  (%(sel)s::varchar IS NULL OR l.kode_sel = %(sel)s::varchar)
                   AND  (NOT %(terisi)s OR p.nilai_aktual IS NOT NULL)
-                ORDER  BY p.waktu_prediksi DESC, l.urutan_tampil
-                LIMIT  %(batas)s""",
-                {"sel": kode_sel, "terisi": hanya_terisi, "batas": batas,
-                 "versi": versi_model})
-            return k.fetchall()
+                  AND  p.versi_model = %(versi)s
+                ORDER  BY p.waktu_prediksi DESC, l.urutan_tampil, p.id_prediksi
+                LIMIT  %(batas)s OFFSET %(lewati)s""", param)
+            return {"total": total, "baris": k.fetchall()}
 
 
 class PenggunaRepository:
