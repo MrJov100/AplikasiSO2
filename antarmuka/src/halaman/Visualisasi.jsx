@@ -106,7 +106,7 @@ export default function Visualisasi({ admin }) {
             <ResponsiveContainer>
               <LineChart
                 data={titik}
-                margin={{ top: 8, right: 16, bottom: 4, left: -8 }}
+                margin={{ top: 8, right: 16, bottom: 4, left: 8 }}
               >
                 <CartesianGrid stroke="#e7ecf1" vertical={false} />
                 <XAxis
@@ -120,6 +120,7 @@ export default function Visualisasi({ admin }) {
                   tick={{ fontSize: 11, fill: "#5b6b7a" }}
                   tickLine={false}
                   axisLine={false}
+                  width={56}
                   domain={[
                     0,
                     tampilkanBakuMutu ? "auto" : (d) => Math.ceil(d * 1.15),
@@ -128,6 +129,8 @@ export default function Visualisasi({ admin }) {
                     value: "µg/m³",
                     angle: -90,
                     position: "insideLeft",
+                    offset: 4,
+                    dy: 20,
                     style: { fontSize: 11, fill: "#5b6b7a" },
                   }}
                 />
