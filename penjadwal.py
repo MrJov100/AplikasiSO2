@@ -3,30 +3,23 @@
     python penjadwal.py              # jalan terus, hentikan dengan Ctrl+C
     python penjadwal.py --sekali     # jalankan satu siklus lalu berhenti
 
-URUTAN LANGKAH, DAN MENGAPA URUTANNYA BEGITU
+URUTAN LANGKAH
 
-1. Segarkan PENGAMATAN. Harus paling dahulu, karena dua langkah berikutnya
-   membaca dari tabel itu.
-2. Bentuk prediksi untuk kesepuluh sel. Memakai tiga pengamatan terakhir yang
-   baru saja disegarkan.
-3. Isi nilai aktual. Dikerjakan paling akhir karena langkah 1 baru saja
-   memasukkan pengamatan untuk jam yang menjadi target prediksi siklus
-   sebelumnya.
+1. Segarkan pengamatan (paling dahulu, karena langkah 2 dan 3 membacanya).
+2. Bentuk prediksi untuk kesepuluh sel dari tiga pengamatan terakhir.
+3. Isi nilai aktual (terakhir, karena langkah 1 baru memasukkan pengamatan
+   untuk jam target prediksi siklus sebelumnya).
 
-Tiap langkah di-commit terpisah. Kalau langkah 2 gagal, pengamatan yang sudah
-ditarik tetap disimpan — itu disengaja: data pengamatan berharga walaupun
-prediksinya gagal dibentuk, dan siklus berikutnya akan mencoba lagi.
+Tiap langkah di-commit terpisah. Jika langkah 2 gagal, pengamatan tetap
+tersimpan dan siklus berikutnya mencoba lagi.
 
-MENIT KEBERANGKATAN
+JADWAL
 
-Penjadwal berangkat pada menit ke-MENIT_JADWAL setiap jam, bukan menit nol.
-Arsip Open-Meteo perlu waktu untuk memuat jam yang baru lewat; berangkat tepat
-di menit nol membuat jam terakhir sering belum tersedia dan penjaga kemutakhiran
-menolak. Nilai bawaan 10 dapat diubah lewat .env.
-
-Kalau satu jalan belum selesai saat jadwal berikutnya tiba, jalan baru TIDAK
-dimulai (max_instances=1) dan jadwal yang terlewat digabung menjadi satu
-(coalesce=True) — supaya tidak menumpuk panggilan API.
+- Berangkat pada menit ke-MENIT_JADWAL (bawaan 10, bisa diubah di .env), bukan
+  menit nol: arsip Open-Meteo perlu waktu memuat jam yang baru lewat.
+- Jika satu jalan belum selesai saat jadwal berikutnya tiba, jalan baru tidak
+  dimulai (max_instances=1) dan jadwal yang terlewat digabung (coalesce=True),
+  supaya panggilan API tidak menumpuk.
 """
 import argparse
 import sys
@@ -49,10 +42,9 @@ def catat(*bagian):
 def satu_siklus(simpan=True):
     """Jalankan ketiga langkah satu kali. Return True bila seluruhnya lancar.
 
-    Status yang dicatat di SIKLUS_SINKRONISASI mencakup ketiga langkah, bukan
-    hanya langkah penarikan. Lihat catatan pada bd.SQL_SELESAI_TARIKAN: selama
-    status disegel oleh langkah 1, siklus yang kehilangan seluruh prediksinya
-    tetap tampil 'berhasil' di riwayat sinkronisasi dan admin tidak pernah tahu.
+    Status di SIKLUS_SINKRONISASI mencakup ketiga langkah, bukan hanya
+    penarikan; kalau tidak, siklus yang kehilangan seluruh prediksinya tetap
+    tampil 'berhasil' (lihat bd.SQL_SELESAI_TARIKAN).
     """
     lancar = True
     with bd.koneksi() as sambungan:
@@ -100,20 +92,16 @@ def satu_siklus(simpan=True):
 
         # --- Segel status siklus --------------------------------------------
         #
-        # Jumlah yang dicatat tetap jumlah SEL pada langkah penarikan, supaya
-        # arti kolomnya tidak berubah bagi riwayat yang sudah ada. Yang berubah
-        # hanyalah status: 'berhasil' kini menuntut ketiga langkah lancar.
-        # Prediksi yang gagal seluruhnya membuat siklus 'gagal'; gagal sebagian
-        # membuatnya 'sebagian'.
+        # Jumlah yang dicatat tetap jumlah sel pada langkah penarikan; hanya
+        # status yang kini menuntut ketiga langkah lancar. Prediksi gagal
+        # seluruhnya = 'gagal', gagal sebagian = 'sebagian'.
         if simpan:
             if gagal == 0 and not hasil["gagal"]:
                 status = "berhasil"
             elif berhasil == 0 and hasil["berhasil"] == 0:
                 status = "gagal"
             elif berhasil == 0:
-                # Pengamatan masuk, tetapi tidak satu pun prediksi terbentuk.
-                # Inilah bentuk kegagalan 1 Oktober 2026, dan ia harus terbaca
-                # sebagai kegagalan, bukan keberhasilan sebagian.
+                # Pengamatan masuk, tetapi tidak ada prediksi: tetap kegagalan.
                 status = "gagal"
             else:
                 status = "sebagian"
@@ -151,17 +139,10 @@ def main():
                    help="satu siklus tanpa menulis apa pun")
     a = p.parse_args()
 
-    # Penjaga versi pustaka, dijalankan SEBELUM siklus mana pun.
-    #
-    # Berkas ini satu-satunya proses yang berjalan tanpa pengawasan berhari-hari
-    # dan yang mengisi tabel PREDIKSI untuk Bab 4. Sampai 30 September 2026 ia
-    # tidak pernah memanggil penjaga ini, sehingga justru jalur produksinya yang
-    # tidak terlindungi dari pergeseran versi pustaka -- padahal joblib.load
-    # berhasil dengan versi berbeda namun menghasilkan angka yang berbeda pula.
-    # Kegagalan seperti itu tidak memunculkan galat apa pun; ia hanya mengotori
-    # seluruh catatan operasional secara diam-diam.
-    #
-    # Cukup sekali di sini: versi pustaka tidak dapat berubah di tengah proses.
+    # Penjaga versi pustaka, dijalankan sekali SEBELUM siklus mana pun.
+    # Penjadwal berjalan tanpa pengawasan dan mengisi tabel PREDIKSI; joblib.load
+    # tetap berhasil dengan versi pustaka berbeda, tetapi angkanya berbeda dan
+    # tanpa galat, sehingga catatan operasional tercemar diam-diam.
     md.periksa_versi_sesi()
     catat("Versi pustaka cocok dengan lingkungan pelatihan.")
 
@@ -171,20 +152,12 @@ def main():
         jalan_terjadwal()
         return 0
 
-    # BackgroundScheduler, bukan BlockingScheduler.
-    #
-    # BlockingScheduler menunggu jadwal berikutnya dengan threading.Event.wait().
-    # Di Windows, penantian itu tidak dibangunkan oleh Ctrl+C: penangan SIGINT
-    # Python baru dijalankan setelah wait() selesai sendiri. Karena jadwalnya
-    # per jam, wait()-nya bisa sampai hampir 3600 detik, sehingga Ctrl+C tampak
-    # tidak berfungsi dan terminal harus ditutup paksa — dan penutupan paksa
-    # memutus koneksi basis data di tengah siklus.
-    #
-    # Karena itu penjadwal dijalankan di utas latar, sedangkan utas utama
-    # menunggu dengan time.sleep() pendek. time.sleep() DIBATALKAN oleh Ctrl+C
-    # di Windows, jadi penghentian terjadi paling lambat satu detik kemudian dan
-    # shutdown(wait=True) diberi kesempatan menyelesaikan siklus yang sedang
-    # berjalan sebelum proses keluar.
+    # BackgroundScheduler, bukan BlockingScheduler: di Windows, Event.wait()
+    # milik BlockingScheduler tidak dibangunkan Ctrl+C (bisa menunggu hampir
+    # 3600 detik), sehingga terminal ditutup paksa dan koneksi basis data
+    # terputus di tengah siklus. Utas utama kini menunggu dengan time.sleep()
+    # pendek yang bisa dibatalkan Ctrl+C, lalu shutdown(wait=True) membiarkan
+    # siklus yang sedang berjalan selesai.
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.triggers.cron import CronTrigger
 

@@ -1,6 +1,6 @@
 """Akses PostgreSQL: membaca pengamatan dan menulis prediksi.
 
-Inilah jalur utama menurut naskah Subbab 2.1 — "sistem membaca tiga pengamatan
+sistem membaca tiga pengamatan
 terakhir dari basis data". Penarikan langsung ke Open-Meteo hanya jaring
 pengaman, dan tidak dipakai di berkas ini.
 """
@@ -29,26 +29,21 @@ def koneksi():
 
 # ---------------------------------------------------------------- kolam koneksi
 #
-# API membuka koneksi pada SETIAP permintaan HTTP, dan membuka koneksi
-# PostgreSQL baru dari nol berbiaya ~34 ms pada mesin pengembangan — hampir
-# seluruhnya salaman TCP, autentikasi, dan fork proses backend, bukan kerja
-# berguna; kueri yang dilayani indeks sendiri hanya sepersekian milidetik.
-# Biaya itu sekaligus menjadi plafon: ~29 permintaan/detik per worker.
+# Kolam koneksi dipakai untuk dua tujuan:
 #
-# Yang lebih berbahaya adalah batasnya. Tanpa kolam, jumlah koneksi serentak
-# ditentukan oleh jumlah permintaan serentak, sehingga banjir permintaan ke satu
-# endpoint publik dapat menembus plafon koneksi PostgreSQL. Begitu plafon itu
-# tembus, yang mati bukan hanya endpoint yang dibanjiri: login admin dan siklus
-# penjadwal pun ditolak "FATAL: too many connections". MAKS_KOLAM menjadikan
-# jumlah koneksi dibatasi aplikasi, bukan oleh perilaku penyerang.
+# 1. Kecepatan. Membuka koneksi PostgreSQL baru di setiap permintaan memakan
+#    ~34 ms, jauh lebih lama daripada kuerinya sendiri. Dengan kolam, koneksi
+#    dipakai ulang sehingga biaya itu hilang.
+# 2. Keamanan. Jumlah koneksi dibatasi oleh aplikasi (MAKS_KOLAM), sehingga
+#    banjir permintaan tidak bisa menghabiskan jatah koneksi database dan
+#    membuat login admin serta penjadwal gagal ("too many connections").
 #
-# PLAFONNYA 20, BUKAN 100. Peran so2_app dibuat dengan rolconnlimit = 20
-# (periksa: SELECT rolconnlimit FROM pg_roles WHERE rolname='so2_app'), jadi
-# max_connections 100 pada postgresql.conf bukan angka yang menentukan — yang
-# berlaku adalah yang terkecil di antara keduanya. Karena itu kolam dibatasi 8,
-# bukan 10: sisanya untuk penjadwal, skrip baris perintah, dan sesi pgAdmin yang
-# masing-masing memakai koneksi() tersendiri di luar kolam. Kalau MAKS_KOLAM
-# dinaikkan lewat .env, naikkan rolconnlimit lebih dahulu.
+# Batas koneksi yang berlaku adalah 20 (rolconnlimit peran so2_app), bukan 100
+# (max_connections). Cek dengan:
+#   SELECT rolconnlimit FROM pg_roles WHERE rolname='so2_app'
+# Kolam diberi 8; 12 sisanya untuk penjadwal, skrip CLI, dan pgAdmin yang
+# membuka koneksi sendiri lewat koneksi(). Jika MAKS_KOLAM_DB di .env dinaikkan,
+# naikkan dulu rolconnlimit-nya.
 MAKS_KOLAM = int(os.getenv("MAKS_KOLAM_DB", "8"))
 MIN_KOLAM = int(os.getenv("MIN_KOLAM_DB", "2"))
 

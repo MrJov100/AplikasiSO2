@@ -1,31 +1,25 @@
 """Satu siklus sinkronisasi: tarik Open-Meteo, upsert ke PENGAMATAN.
 
-Inilah inti Fase 3b tanpa penjadwalnya. Dijalankan tangan dulu, nanti dipanggil
-APScheduler setiap jam.
+Dipanggil penjadwal setiap jam, atau dijalankan tangan:
 
     python segarkan_pengamatan.py                  # coba-coba, tidak menulis
     python segarkan_pengamatan.py --simpan
     python segarkan_pengamatan.py --sel G04 --simpan
     python segarkan_pengamatan.py --simpan --pengguna admin
 
-MENGAPA SELURUH JENDELA DI-UPSERT, BUKAN HANYA JAM TERBARU
+SELURUH JENDELA DI-UPSERT, BUKAN HANYA JAM TERBARU
 
-Arsip Open-Meteo masih berubah untuk jam-jam terakhir: nilai yang ditarik
-sebelum sebuah run selesai adalah prakiraan, dan diganti analisis kemudian.
-Pemeriksaan 29 September pada G04 memperlihatkan batasnya jatuh tepat di 19.00
-WIB, yaitu 12.00 UTC, batas run 12z. Karena itu setiap siklus menulis ulang
-SELURUH jam yang ditarik (HARI_MUNDUR hari), bukan hanya jam terbaru. Kalau
-tidak, prakiraan yang sudah usang akan menetap selamanya dan dipakai sebagai
-lag.
+Nilai jam-jam terakhir di arsip Open-Meteo masih berubah: yang ditarik sebelum
+sebuah run selesai adalah prakiraan, lalu diganti analisis. Karena itu setiap
+siklus menulis ulang seluruh jam yang ditarik (HARI_MUNDUR hari); kalau tidak,
+prakiraan usang menetap dan dipakai sebagai lag.
 
 DATA DISIMPAN APA ADANYA
 
-Nilai pengamatan disimpan persis seperti yang dikirim sumber, setelah
-pra-pemrosesan yang sama dengan saat pelatihan (pemangkasan SO2 negatif menjadi
-nol, dilakukan di penarikan.py). Tidak ada penandaan maupun perubahan nilai oleh
-sistem atau admin, sehingga perlakuan data saat operasional identik dengan saat
-model dilatih. Nilai yang mustahil secara fisika ditolak kekangan CHECK pada
-basis data.
+Nilai disimpan seperti dari sumber, setelah pra-pemrosesan yang sama dengan
+saat pelatihan (SO2 negatif dipangkas ke nol di penarikan.py). Tidak ada
+penandaan atau perubahan nilai oleh sistem maupun admin. Nilai mustahil secara
+fisika ditolak kekangan CHECK di basis data.
 """
 import argparse
 import sys
@@ -87,11 +81,9 @@ def jalankan_siklus(sambungan, daftar=None, simpan=True, batas=None,
 
     Tidak melakukan commit; pemanggil yang memutuskan kapan menyimpan.
 
-    segel_status=False menyisakan status siklus tetap 'berjalan', supaya
-    pemanggil yang masih punya langkah lanjutan -- penjadwal, dengan langkah
-    prediksi dan pengisian nilai aktual -- dapat menyetel status akhir sesudah
-    semuanya selesai. Tanpa itu, siklus tersegel 'berhasil' di sini dan
-    kegagalan langkah berikutnya tidak pernah terlihat di riwayat.
+    segel_status=False membiarkan status siklus 'berjalan' agar pemanggil yang
+    punya langkah lanjutan (penjadwal) menyetel status akhir sesudah semuanya
+    selesai. Tanpa itu, kegagalan langkah berikutnya tidak terlihat di riwayat.
     """
     daftar = daftar or KODE_SEL
     id_siklus = bd.mulai_siklus(sambungan, pemicu, id_pengguna) if simpan else None
@@ -105,14 +97,10 @@ def jalankan_siklus(sambungan, daftar=None, simpan=True, batas=None,
     for kode in daftar:
         mulai_sel = time.monotonic()
         try:
-            # Tiap sel ditulis di dalam savepoint-nya sendiri. Dulu di sini
-            # dipakai sambungan.rollback(), yang membatalkan SELURUH transaksi
-            # -- termasuk baris SIKLUS_SINKRONISASI yang baru dibuat
-            # mulai_siklus() di atas, karena pemanggil belum commit. Akibatnya
-            # sinkronisasi yang gagal tidak pernah muncul di tab "Riwayat
-            # sinkronisasi": UPDATE penyegel status mengenai nol baris, dan
-            # yang tersimpan hanyalah transaksi kosong. Savepoint membatalkan
-            # tulisan sel yang gagal saja dan membiarkan baris siklus hidup.
+            # Tiap sel di savepoint-nya sendiri, bukan rollback(): rollback
+            # membatalkan seluruh transaksi, termasuk baris siklus dari
+            # mulai_siklus() yang belum di-commit, sehingga sinkronisasi gagal
+            # tidak muncul di riwayat. Savepoint hanya membatalkan sel itu.
             if simpan:
                 with sambungan.transaction():
                     r = proses_sel(sambungan, kode, id_siklus, simpan, batas)
@@ -125,18 +113,12 @@ def jalankan_siklus(sambungan, daftar=None, simpan=True, batas=None,
             gagal += 1
             pesan = f"{type(e).__name__}: {e}"
             cetak(f"{kode:<5}  GAGAL: {pesan}")
-            # Rincian per sel dicatat SESUDAH savepoint dibatalkan: baris
-            # rincian yang dibuka proses_sel() ikut hilang bersama savepoint,
-            # jadi alasan kegagalan harus ditulis ulang di luar lingkupnya.
-            #
-            # Pencatatan itu sendiri dibungkus savepoint lagi. Tanpa savepoint,
-            # satu INSERT yang ditolak -- misalnya karena sel ini sudah punya
-            # baris rincian -- akan membuat Postgres membatalkan SELURUH
-            # transaksi, dan setiap perintah sesudahnya ditolak dengan
-            # "InFailedSqlTransaction: current transaction is aborted". Pesan
-            # itu hanya puing: galat aslinya sudah lewat dan tidak terbaca.
-            # Savepoint menahan kerusakan di sini, sehingga selesaikan_siklus()
-            # di bawah masih dapat menyegel status siklus.
+            # Rincian dicatat sesudah savepoint dibatalkan, karena baris rincian
+            # dari proses_sel() ikut hilang. Pencatatan ini juga di savepoint:
+            # satu INSERT yang ditolak (mis. rincian sel sudah ada) akan
+            # membatalkan seluruh transaksi dan semua perintah berikutnya gagal
+            # dengan "InFailedSqlTransaction", padahal selesaikan_siklus() di
+            # bawah masih harus menyegel status.
             if simpan:
                 try:
                     with sambungan.transaction():

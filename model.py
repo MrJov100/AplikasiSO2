@@ -1,7 +1,7 @@
 """Pemuatan model dan inferensi stacking.
 
-Fungsi di berkas ini disalin apa adanya dari ModulInferensiFIX.ipynb supaya
-angkanya identik. Yang berubah hanya asal datanya: tabel pengamatan sekarang
+Fungsi di berkas ini disalin dari ModulInferensiFIX.ipynb supaya
+angkanya identik. Yang berubah hanya asal datanya, tabel pengamatan sekarang
 datang dari PostgreSQL, bukan dari Open-Meteo.
 """
 from functools import lru_cache

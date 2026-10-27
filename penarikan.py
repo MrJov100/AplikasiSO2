@@ -119,39 +119,17 @@ def tarik_sel(lintang, bujur, elevasi, hari_mundur=HARI_MUNDUR, batas_waktu=None
         "so2": pd.to_numeric(isi["hourly"]["sulphur_dioxide"], errors="coerce"),
     }).dropna(subset=["so2"])
 
-    # JENDELA ARSIP DISUSUN DAN DIMINTA DALAM HARI UTC, BUKAN HARI JAKARTA.
-    #
-    # Dua kegagalan berurutan lahir dari satu sebab yang sama: arsip Open-Meteo
-    # membuka tanggal baru mengikuti UTC, sedangkan Jakarta (UTC+7) sudah
-    # berganti tanggal tujuh jam lebih awal.
-    #
-    # 1. Sampai 30 September 2026 end_date diambil dari tanggal Jakarta. Antara
-    #    00.00 dan 07.00 WIB tanggal itu selalu satu hari di depan batas yang
-    #    diizinkan arsip, sehingga seluruh permintaan ditolak dengan "Parameter
-    #    'end_date' is out of allowed range from 1940-01-01 to ...". Terlihat
-    #    1 Oktober 2026 pukul 00.10 WIB, ketika penjadwal pertama kali menyala
-    #    melewati tengah malam.
-    #
-    # 2. Memangkas end_date ke tanggal UTC menghentikan penolakan itu, tetapi
-    #    jendelanya masih DILABELI dalam waktu Jakarta. Akibatnya jam WIB
-    #    00.00-06.00 tidak pernah ikut diminta: jam-jam itu sudah masuk hari
-    #    Jakarta yang baru, padahal masih berada di dalam hari UTC yang
-    #    diizinkan (00.00 WIB 1 Okt = 17.00 UTC 30 Sep). Pengamatan berhenti di
-    #    23.00 WIB hari sebelumnya, penjaga kemutakhiran menolak, dan enam
-    #    prediksi hilang setiap hari. Terlihat pada log 1 Oktober 2026 siklus
-    #    28-33: sepuluh sel, 72 baris, "sisip 0" di setiap siklus.
-    #
-    # Karena itu jendela kini diminta sepenuhnya dalam hari UTC, lalu labelnya
-    # dikonversi ke waktu Jakarta di pandas. Parameter timezone hanya mengubah
-    # pelabelan dan pengirisan jam, BUKAN nilainya, sehingga kesetaraan dengan
-    # data latih tetap terjaga: models, domains, koordinat, elevasi, dan satuan
-    # tidak disentuh. Permintaan SO2 tetap memakai past_days/forecast_days
-    # dengan label Jakarta; penggabungan di bawah mempertemukan keduanya pada
-    # label Jakarta yang sama.
-    #
-    # Yang tersisa sebagai batas hanyalah jeda penerbitan arsip, sama seperti
-    # siang hari. Bila jeda itu melebar, penjaga kemutakhiran pada
-    # tentukan_waktu_target tetap menolak membentuk prediksi.
+    # Arsip Open-Meteo membuka tanggal baru mengikuti UTC, sedangkan Jakarta
+    # (UTC+7) berganti tanggal 7 jam lebih awal. Maka jendela arsip diminta
+    # dalam hari UTC (timezone="UTC"), lalu labelnya dikonversi ke Jakarta di
+    # pandas. Jangan ganti ke tanggal Jakarta:
+    #   - end_date bisa melampaui batas arsip pada 00.00-07.00 WIB, sehingga
+    #     seluruh permintaan ditolak ("end_date is out of allowed range");
+    #   - jika hanya end_date yang dipangkas ke UTC tetapi label tetap Jakarta,
+    #     jam 00.00-06.00 WIB tidak terambil dan prediksi hari itu hilang.
+    # Parameter timezone hanya mengubah label jam, bukan nilainya, jadi
+    # kesetaraan dengan data latih terjaga. Penggabungan dengan data SO2
+    # (berlabel Jakarta) dilakukan pada label Jakarta yang sama.
     akhir_utc = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
 
     isi = _minta(API_METEO, {

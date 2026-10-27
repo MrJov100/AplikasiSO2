@@ -8,16 +8,6 @@ sendiri karena ia generated column.
     python isi_nilai_aktual.py            # coba-coba, tidak menulis
     python isi_nilai_aktual.py --simpan
     python isi_nilai_aktual.py --ketelitian
-
-CATATAN UNTUK BAB 4
-
-Ketelitian di sini adalah ketelitian OPERASIONAL — prediksi yang benar-benar
-dibentuk sistem saat berjalan, atas data yang tersedia pada saat itu. Ia tidak
-sama dengan ketelitian blok uji pada Skenario 2, dan biasanya lebih buruk,
-karena lag t-1 saat berjalan sering masih berupa prakiraan yang belum menjadi
-analisis. Jangan membuat prediksi massal ke belakang untuk mengisi tabel ini:
-prediksi seperti itu memakai data yang sudah direvisi dan akan terlihat lebih
-baik daripada yang sebenarnya dicapai sistem.
 """
 import argparse
 import sys

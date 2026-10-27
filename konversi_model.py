@@ -1,19 +1,15 @@
-"""Konversi sekali jalan: berkas model Colab -> berkas model portabel.
-
-LATAR BELAKANG
+"""berkas model Colab -> berkas model portabel.
 
 Kesepuluh berkas `Gxx_skenario2_model.joblib` dilatih di Google Colab (Linux).
 Di Windows, `joblib.load` atasnya gagal dengan `XGBoostError: input stream
 corrupted`. Berkasnya TIDAK rusak — berkas yang sama berhasil dimuat di Linux
 dengan versi pustaka yang persis sama, dan SHA-256-nya cocok.
 
-Penyebabnya: buffer pickle XGBoost dibuat oleh `XGBoosterSerializeToBuffer`,
+Penyebabnya adalah buffer pickle XGBoost dibuat oleh `XGBoosterSerializeToBuffer`,
 dan format itu memang tidak dijamin portabel antarsistem operasi. Dokumentasi
 XGBoost menganjurkan `save_model` dengan format JSON atau UBJSON untuk
 penyimpanan yang harus dipindah-pindah. RandomForest dan Ridge tidak terkena
 masalah ini karena keduanya pickle scikit-learn biasa yang portabel.
-
-APA YANG DILAKUKAN BERKAS INI
 
 Booster XGBoost sudah dikonversi lebih dahulu menjadi `Gxx_xgb.ubj` di folder
 `model_portabel`. Berkas ini melengkapinya: membuka tiap berkas asli dengan

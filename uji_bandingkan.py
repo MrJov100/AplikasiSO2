@@ -1,14 +1,9 @@
 """Uji kesetaraan basis data versus Open-Meteo, dengan diagnosa per jam.
 
-Naskah Subbab 2.1 menyebut jalur utama adalah membaca tiga pengamatan terakhir
-dari basis data, sedangkan penarikan langsung ke API hanya jaring pengaman.
-Berkas ini membandingkan keduanya.
-
-PENTING — cara membaca hasilnya. Nilai untuk jam yang BELUM LEWAT saat data
-ditarik adalah prakiraan, bukan analisis. Open-Meteo memperbaruinya kemudian
-ketika run berikutnya selesai. Jadi selisih pada jam-jam terakhir seed adalah
-hal yang diharapkan, bukan tanda seed salah. Mode --diagnosa memperlihatkan
-batas itu dengan jelas: jam lama akan cocok, jam terakhir tidak.
+Cara membaca hasil: nilai jam yang belum lewat saat data ditarik adalah
+prakiraan, lalu diperbarui Open-Meteo. Selisih pada jam-jam terakhir seed
+wajar; selisih pada jam lama berarti ada masalah. Mode --diagnosa menunjukkan
+batasnya.
 
     python uji_bandingkan.py --sel G04 --diagnosa
     python uji_bandingkan.py --sel G04 --target "2026-09-28 00:00"
@@ -35,9 +30,8 @@ SATUAN = {"wind_speed_unit": "ms", "temperature_unit": "celsius",
           "precipitation_unit": "mm"}
 HARI_MUNDUR = 3
 
-# Koordinat PERMINTAAN dan elevasi, sama persis dengan yang dipakai menarik data
-# latih. Elevasi ikut dikirim karena memengaruhi penyesuaian suhu dan tekanan;
-# menghilangkannya membuat nilainya bergeser.
+# Koordinat permintaan dan elevasi, sama dengan data latih. Elevasi wajib ikut
+# karena memengaruhi penyesuaian suhu dan tekanan.
 SEL_GRID = {
     "G01": (-5.750, 106.550,   0), "G02": (-5.745, 106.613,   0),
     "G03": (-6.055, 106.395,   3), "G04": (-6.105, 106.880,   4),
@@ -81,9 +75,7 @@ def tabel_dari_api(kode_sel):
     }).dropna(subset=["so2"])
     so2["so2"] = so2["so2"].clip(lower=0)
 
-    # Jendela arsip dalam hari UTC, label dikonversi ke Jakarta di pandas —
-    # alasan lengkapnya ada di penarikan.tarik_sel(). Memakai tanggal Jakarta
-    # membuat berkas ini ditolak seluruhnya antara 00.00 dan 07.00 WIB.
+    # Jendela arsip dalam hari UTC; alasannya ada di penarikan.tarik_sel().
     akhir_utc = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
     isi = _minta(API_METEO, {
         "latitude": lat, "longitude": lon, "elevation": elev,
@@ -124,12 +116,9 @@ def cetak_koordinat(kode_sel, koordinat, sambungan):
 def _beda(nama, a, b):
     """Selisih dua nilai, dengan perlakuan khusus untuk besaran sirkular.
 
-    Arah angin bersifat sirkular: 0 dan 360 derajat adalah arah yang sama.
-    Saat seed dibangun, nilai 360 dinormalkan menjadi 0 supaya lolos kekangan
-    ck_pengamatan_arah_angin (0 <= arah < 360), sedangkan Open-Meteo tetap
-    mengembalikan 360. Membandingkannya secara lurus akan menghasilkan selisih
-    360 derajat yang menyesatkan, padahal sin dan cos keduanya sama sehingga
-    model tidak terpengaruh sama sekali.
+    Arah angin sirkular: 0 dan 360 derajat sama. Basis data menormalkan 360
+    menjadi 0 (kekangan ck_pengamatan_arah_angin), sedangkan Open-Meteo tetap
+    360; selisih lurus 360 menyesatkan padahal sin/cos-nya sama.
     """
     d = abs(float(a) - float(b))
     if nama == "wind_direction_10m":
@@ -140,8 +129,8 @@ def _beda(nama, a, b):
 def diagnosa(kode_sel, sambungan):
     """Bandingkan basis data dan API pada SELURUH jam yang beririsan.
 
-    Memperlihatkan batas antara jam yang sudah analisis (cocok) dan jam yang
-    masih prakiraan saat seed ditarik (berbeda).
+    Memperlihatkan batas antara jam analisis (cocok) dan jam yang masih
+    prakiraan saat seed ditarik (berbeda).
     """
     tabel_api, koordinat = tabel_dari_api(kode_sel)
     cetak_koordinat(kode_sel, koordinat, sambungan)
@@ -172,11 +161,9 @@ def diagnosa(kode_sel, sambungan):
     print(f"\n  jam identik : {n_cocok} dari {len(irisan)}")
     if batas is not None:
         print(f"  mulai berbeda pada : {batas}")
-    print("\nTafsiran: jam yang belum lewat saat seed ditarik berisi PRAKIRAAN,")
-    print("dan Open-Meteo sudah memperbaruinya menjadi analisis. Selisih pada")
-    print("jam-jam terakhir wajar. Selisih pada jam lama berarti ada masalah.")
-    print("Batas perubahan biasanya jatuh pada 07.00 atau 19.00 WIB, yaitu")
-    print("00z dan 12z, waktu inisialisasi run model.")
+    print("\nTafsiran: selisih pada jam-jam terakhir wajar (prakiraan yang sudah")
+    print("diperbarui); selisih pada jam lama berarti ada masalah. Batas biasanya")
+    print("jatuh pada 07.00 atau 19.00 WIB (run model 00z dan 12z).")
     return 0
 
 
@@ -221,9 +208,8 @@ def banding_target(kode_sel, target, toleransi, sambungan):
 
     if n_beda:
         print(f"\nTIDAK IDENTIK — {n_beda} fitur berbeda.")
-        print("Jalankan --diagnosa untuk melihat apakah selisihnya hanya pada")
-        print("jam terakhir seed (prakiraan yang sudah direvisi) atau juga pada")
-        print("jam lama (yang berarti seed bermasalah).")
+        print("Jalankan --diagnosa untuk melihat apakah selisih hanya pada jam")
+        print("terakhir seed (wajar) atau juga pada jam lama (seed bermasalah).")
     else:
         print("\nLOLOS — kedua jalur identik.")
     return 0 if n_beda == 0 else 1
