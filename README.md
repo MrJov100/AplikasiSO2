@@ -20,8 +20,6 @@ Alamat produksi: **https://selterra.web.app**
    - [4.3 Skrip deploy.ps1](#43-skrip-deployps1)
    - [4.4 Perintah operasional](#44-perintah-operasional)
    - [4.5 Menyiapkan dari nol](#45-menyiapkan-dari-nol)
-   - [4.6 Masalah yang pernah muncul](#46-masalah-yang-pernah-muncul)
-5. [Yang belum ada](#5-yang-belum-ada)
 
 ---
 
@@ -92,12 +90,7 @@ py --list
 Harus ada `3.13`. Lingkungan pelatihan memakai Python 3.13.15. Kalau belum ada,
 unduh dari python.org dan pasang, **centang "Add python.exe to PATH"**.
 
-### 3.2 Buka folder ini di VS Code
-
-File > Open Folder, pilih `C:\Penyimpanan Utama\Dekstop\AplikasiSO2`,
-lalu buka terminal dengan Ctrl+Shift+` (backtick).
-
-### 3.3 Buat lingkungan virtual
+### 3.2 Buat lingkungan virtual
 
 ```powershell
 py -3.13 -m venv .venv
@@ -113,7 +106,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 Setelah aktif, awal baris terminal akan bertuliskan `(.venv)`.
 
-### 3.4 Pasang pustaka
+### 3.3 Pasang pustaka
 
 ```powershell
 python -m pip install --upgrade pip
@@ -124,10 +117,7 @@ Versinya dikunci persis seperti lingkungan pelatihan. **Jangan dilonggarkan.**
 `joblib.load` bisa berhasil dengan versi berbeda tetapi menghasilkan angka yang
 berbeda pula — kegagalan diam yang paling berbahaya di seluruh proyek ini.
 
-Catatan: xgboost 3.4.1 menuntut Python 3.12 ke atas, jadi langkah 3.1 tidak bisa
-dilewati dengan Python 3.11.
-
-### 3.5 Siapkan berkas `.env`
+### 3.4 Siapkan berkas `.env`
 
 ```powershell
 copy .env.contoh .env
@@ -144,27 +134,21 @@ Berkas `.env` sudah masuk `.gitignore`, jadi kata sandinya tidak ikut ke Git.
 Di produksi, nilai-nilai ini tidak dibaca dari `.env`, melainkan dari variabel
 lingkungan Cloud Run dan Secret Manager.
 
-### 3.6 Konversi model, sekali jalan
+### 3.5 Konversi model, sekali jalan
 
 ```powershell
 python konversi_model.py
 ```
 
-**Mengapa perlu.** Berkas `.joblib` dari Colab tidak dapat dimuat di Windows:
-`joblib.load` berhenti dengan `XGBoostError: input stream corrupted`. Berkasnya
-tidak rusak — berkas yang sama berhasil dimuat di Linux dengan versi pustaka yang
-persis sama dan SHA-256 yang cocok. Penyebabnya buffer pickle XGBoost yang memang
-tidak portabel antarsistem operasi.
+**Mengapa perlu.** Berkas `.joblib` dari Colab tidak dapat dimuat di Windows
+(`XGBoostError: input stream corrupted`) karena buffer pickle XGBoost tidak
+portabel antarsistem operasi. Berkasnya sendiri tidak rusak.
 
-Booster kesepuluh sel sudah dikonversi lebih dahulu menjadi `Gxx_xgb.ubj` dan
-tersedia di folder `model_portabel`. Perintah di atas melengkapinya dengan
-`Gxx_bundel.joblib` berisi RandomForest, Ridge, dan metadata — keduanya pickle
-scikit-learn biasa yang memang portabel dan sudah terbukti terbaca di Windows.
+Booster kesepuluh sel sudah dikonversi menjadi `Gxx_xgb.ubj` di `model_portabel`.
+Perintah di atas melengkapinya dengan `Gxx_bundel.joblib` (RandomForest, Ridge,
+dan metadata). Keluarannya sepuluh baris berakhiran `OK`.
 
-Konversi ini **sekali jalan**. Keluarannya sepuluh baris berakhiran `OK`,
-masing-masing bundel sekitar 33–44 MB.
-
-### 3.7 Pemeriksaan awal
+### 3.6 Pemeriksaan awal
 
 ```powershell
 python uji_koneksi.py
@@ -175,9 +159,9 @@ pengamatan beserta waktu pengamatan terbaru.
 
 Kalau gagal di langkah 3, penyebab tersering adalah kata sandi salah atau
 PostgreSQL belum berjalan. Kalau gagal di langkah 1, versi pustaka tidak cocok —
-ulangi langkah 3.4.
+ulangi langkah 3.3.
 
-### 3.8 Prediksi percobaan, tanpa menulis apa pun
+### 3.7 Prediksi percobaan, tanpa menulis apa pun
 
 ```powershell
 python jalankan_prediksi.py --sel G04
@@ -196,7 +180,7 @@ python jalankan_prediksi.py --sel G04 --sekarang "2026-09-27 23:00"
 Keluarannya menampilkan jam target, ketiga jam lag beserta `id_pengamatan`-nya,
 prediksi XGBoost, Random Forest, dan stacking, serta kategorinya.
 
-### 3.9 Tulis ke basis data
+### 3.8 Tulis ke basis data
 
 ```powershell
 python jalankan_prediksi.py --sel G04 --simpan
@@ -219,7 +203,7 @@ FROM   prediksi p JOIN lokasi l ON l.id_lokasi = p.id_lokasi
 ORDER  BY p.dibuat_pada DESC;
 ```
 
-### 3.10 Uji kesetaraan dengan Open-Meteo
+### 3.9 Uji kesetaraan dengan Open-Meteo
 
 ```powershell
 python uji_bandingkan.py --sel G04 --target "2026-09-28 00:00"
@@ -233,7 +217,7 @@ menghasilkan angka yang sama dengan jaring pengaman. Perlu koneksi internet.
 Jam targetnya harus masih terjangkau `past_days=3`, jadi ujilah dalam tiga hari
 setelah jam yang dipilih.
 
-### 3.11 Kesepuluh sel sekaligus
+### 3.10 Kesepuluh sel sekaligus
 
 ```powershell
 python jalankan_prediksi.py --semua --simpan
@@ -244,7 +228,7 @@ Jalankan dua kali: jalan kedua harus **memperbarui** baris yang sama, bukan
 menambah baris baru — itu membuktikan kekangan `uk_prediksi_lokasi_waktu` dan
 kebijakan upsert bekerja, sekaligus menutup persoalan prediksi kembar.
 
-### 3.12 Segarkan tabel PENGAMATAN
+### 3.11 Segarkan tabel PENGAMATAN
 
 ```powershell
 python segarkan_pengamatan.py                 # coba-coba, tidak menulis
@@ -270,7 +254,7 @@ kekangan CHECK pada basis data.
 Jalankan dua kali: jalan kedua harus melaporkan `sisip 0` dan `perbarui` sebanyak
 jumlah barisnya — bukti upsert bekerja.
 
-### 3.13 Isi nilai aktual
+### 3.12 Isi nilai aktual
 
 ```powershell
 python isi_nilai_aktual.py                # coba-coba
@@ -291,7 +275,7 @@ yang dibentuk sekarang atas data yang sudah direvisi menjadi analisis akan
 terlihat lebih baik daripada yang sebenarnya dicapai sistem saat berjalan
 langsung, dan MAE/RMSE operasionalnya menjadi optimistis.
 
-### 3.14 Penjadwal
+### 3.13 Penjadwal
 
 ```powershell
 python penjadwal.py --coba      # satu siklus, tidak menulis
@@ -304,19 +288,14 @@ langkah berurutan: segarkan pengamatan, bentuk prediksi, isi nilai aktual.
 Urutannya mengikat — langkah 2 dan 3 membaca dari tabel yang disegarkan langkah 1.
 
 Menit keberangkatannya bukan nol dengan sengaja: arsip Open-Meteo perlu waktu
-memuat jam yang baru lewat, dan berangkat tepat di menit nol membuat jam terakhir
-sering belum tersedia sehingga penjaga kemutakhiran menolak.
-
-Kalau satu jalan belum selesai saat jadwal berikutnya tiba, jalan baru tidak
-dimulai dan jadwal yang terlewat digabung menjadi satu, supaya panggilan API tidak
-menumpuk.
+memuat jam yang baru lewat, sehingga di menit nol penjaga kemutakhiran sering
+menolak. Kalau satu jalan belum selesai saat jadwal berikutnya tiba, jalan baru
+tidak dimulai.
 
 **Penjadwal lokal hanya untuk pengembangan.** Di produksi, siklus per jam
-dijalankan Cloud Scheduler (lihat [4.1](#41-sumber-daya)). Catatan operasional di
-tabel PREDIKSI hanya bisa terkumpul dengan berjalan, tidak bisa dibuat ke
-belakang, jadi pastikan jadwal produksi tetap menyala sampai sidang.
+dijalankan Cloud Scheduler (lihat [4.1](#41-sumber-daya)).
 
-### 3.15 Buat akun admin
+### 3.14 Buat akun admin
 
 ```powershell
 python buat_admin.py --username admin --nama "Jovandi Todana"
@@ -332,21 +311,13 @@ Isi juga `KUNCI_TOKEN` pada `.env` dengan teks acak panjang:
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-### 3.16 Jalankan API
+### 3.15 Jalankan API
 
 ```powershell
 uvicorn api.main:app --reload
 ```
 
-Buka http://localhost:8000/docs — dokumentasi endpoint otomatis, lengkap dengan
-tombol coba. Berguna untuk pengujian black box dan untuk mendemonstrasikan bahwa
-setiap janji naskah punya endpoint-nya.
-
-Untuk diakses dari komputer lain di jaringan yang sama:
-
-```powershell
-uvicorn api.main:app --host 0.0.0.0 --port 8000
-```
+Buka http://localhost:8000/docs untuk dokumentasi endpoint otomatis.
 
 Saat start, kesepuluh model dimuat sekali ke memori — bukan tiap permintaan.
 
@@ -361,7 +332,7 @@ Saat start, kesepuluh model dimuat sekali ke memori — bukan tiap permintaan.
 | Monitoring  | `/api/monitoring`  | admin  |
 | Riwayat     | `/api/riwayat`     | admin  |
 
-### 3.17 Jalankan antarmuka React
+### 3.16 Jalankan antarmuka React
 
 Sembilan halaman sudah lengkap di `antarmuka/`:
 
@@ -387,12 +358,6 @@ cd antarmuka; npm install; npm run dev # jendela kedua, porta 5173
 Buka http://localhost:5173. Permintaan `/api` diteruskan Vite ke porta 8000, jadi
 tidak ada persoalan lintas asal. API lokal ini membaca basis data **lokal**.
 
-Untuk melihat tampilan baru dengan data produksi tanpa menjalankan API lokal,
-ubah sementara `target` proxy di `antarmuka/vite.config.js` ke alamat Cloud Run
-(`https://so2-api-532707674958.asia-southeast2.run.app`), lalu **kembalikan ke
-`http://127.0.0.1:8000`** sesudahnya. Ingat bahwa cara ini terhubung ke basis data
-produksi: jangan memicu sinkronisasi manual saat mencobanya.
-
 Untuk demonstrasi lokal dengan satu proses:
 
 ```powershell
@@ -402,9 +367,6 @@ uvicorn api.main:app
 
 FastAPI mendeteksi `antarmuka/dist` dan menyajikannya sendiri, sehingga seluruh
 aplikasi berada pada http://localhost:8000.
-
-`npm install` perlu jaringan dan hanya dijalankan sekali. Folder `node_modules`
-tidak perlu diserahkan bersama naskah; `package.json` sudah mengikat versinya.
 
 ---
 
@@ -430,9 +392,6 @@ Variabel lingkungan service dan job: `PG_HOST=10.4.240.3`, `PG_PORT=5432`,
 `MASA_TOKEN_JAM`. Kata sandi dan kunci token datang dari Secret Manager, tidak
 pernah ditulis di konfigurasi.
 
-Situs Firebase bawaan (`so2-jabodetabek-510408.web.app`) tidak bisa dihapus dan
-tetap menayangkan versi terakhir yang dideploy sebelum situs `selterra` dibuat.
-
 ### 4.2 Memperbarui aplikasi
 
 Deploy mengambil kode dari **folder di komputer Anda**, bukan dari GitHub. Kode
@@ -451,12 +410,11 @@ tidak tersinkron otomatis: setiap bagian harus di-deploy sendiri.
 #### Memperbarui frontend
 
 1. Ubah kode di `antarmuka/src/`.
-2. Periksa di lokal. Jalankan API dan antarmuka seperti di [3.17](#317-jalankan-antarmuka-react).
+2. Periksa di lokal. Jalankan API dan antarmuka seperti di [3.16](#316-jalankan-antarmuka-react).
 3. Commit perubahan ke Git (disarankan).
 4. Publikasikan:
 
    ```powershell
-   cd "C:\Penyimpanan Utama\Dekstop\AplikasiSO2"
    .\deploy.ps1 -Frontend
    ```
 
@@ -494,12 +452,10 @@ Perubahan tampilan **tidak** memerlukan deploy backend atau perubahan basis data
 #### Langkah 4: mengubah struktur basis data
 
 Perubahan skema tidak ikut deploy kode. Terapkan di **Cloud SQL Studio** (Console
-
-> SQL > `so2-db` > Cloud SQL Studio), login sebagai `postgres` pada basis data
-> `so2_jabodetabek`. Peran `so2_app` sengaja tidak punya hak DDL. Tabel baru yang
-> dibuat `postgres` otomatis memberi hak data ke `so2_app` lewat
-> `ALTER DEFAULT PRIVILEGES`. Simpan perintah SQL-nya sebagai berkas di folder SQL
-> supaya riwayatnya terdokumentasi.
+\> SQL \> `so2-db` \> Cloud SQL Studio), login sebagai `postgres` pada basis data
+`so2_jabodetabek`. Peran `so2_app` sengaja tidak punya hak DDL. Tabel baru yang
+dibuat `postgres` otomatis memberi hak data ke `so2_app` lewat
+`ALTER DEFAULT PRIVILEGES`.
 
 #### Langkah 5: mengubah variabel lingkungan atau kata sandi
 
@@ -521,13 +477,6 @@ Hapus berkas kata sandi sementara itu sesudahnya.
 Salin berkas model baru ke `model_portabel/`, samakan `VERSI_MODEL` di service dan
 job, lalu jalankan `.\deploy.ps1 -Backend`.
 
-#### Kebiasaan yang disarankan
-
-Commit ke Git **sebelum** deploy, supaya yang berjalan di cloud selalu dapat
-ditelusuri ke satu commit dan versi lama bisa dipulihkan. Git tidak diperlukan
-agar deploy berjalan, tetapi `deploy.ps1` akan memperingatkan bila ada perubahan
-yang belum di-commit. Folder `model_portabel/` dan berkas `.env` tidak ikut ke Git.
-
 ### 4.3 Skrip deploy.ps1
 
 Dijalankan dari folder proyek utama (`AplikasiSO2`), bukan dari `antarmuka`.
@@ -537,12 +486,6 @@ Dijalankan dari folder proyek utama (`AplikasiSO2`), bukan dari `antarmuka`.
 .\deploy.ps1 -Frontend             # hanya frontend (Firebase Hosting)
 .\deploy.ps1 -Backend              # backend + Cloud Run Job
 .\deploy.ps1 -Backend -TanpaJob    # backend saja, job tidak diperbarui
-```
-
-Kalau PowerShell menolak dengan pesan "running scripts is disabled":
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\deploy.ps1 -Frontend
 ```
 
 Skrip berhenti di langkah pertama yang gagal. Galat `401` dari Firebase berarti
@@ -586,8 +529,6 @@ jadi jangan dilakukan selama pengumpulan data berlangsung.
 gcloud sql instances patch so2-db --activation-policy=NEVER    # hentikan
 gcloud sql instances patch so2-db --activation-policy=ALWAYS   # nyalakan
 ```
-
-Pasang juga _budget alert_ di Console > Billing > Budgets & alerts.
 
 ### 4.5 Menyiapkan dari nol
 
@@ -706,7 +647,8 @@ bila berbeda.
    Ganti `PG_HOST` dengan IP privat instance yang baru bila berbeda. Jika
    `--allow-unauthenticated` ditolak dengan pesan _"do not belong to a permitted
    customer"_, longgarkan kebijakan `iam.allowedPolicyMemberDomains` pada project
-   (lihat [4.6](#46-masalah-yang-pernah-muncul)), lalu jalankan:
+   (Organization Policies, atau `gcloud org-policies set-policy` dengan
+   `allowAll: true`), lalu jalankan:
 
    ```powershell
    gcloud run services add-iam-policy-binding so2-api --region asia-southeast2 --member="allUsers" --role="roles/run.invoker"
@@ -745,27 +687,3 @@ bila berbeda.
     `antarmuka/firebase.json` sudah berisi `"site": "selterra"` serta aturan
     _rewrite_ `/api/**` ke `so2-api` di `asia-southeast2`. ID situs tidak bisa
     diubah setelah dibuat dan harus unik di seluruh dunia.
-
-### 4.6 Masalah yang pernah muncul
-
-| Gejala                                                                 | Penyebab dan penanganan                                                                                                                                                                         |
-| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Instance Cloud SQL berstatus `SUSPENDED`, perubahan ditolak 409        | `gcloud` menunjuk ke project yang salah (ID berbeda dari nama tampilan) dan project itu tidak punya billing. Cek `gcloud billing projects describe <project>`                                   |
-| Pembuatan instance: "Restrict Public IP access"                        | Kebijakan organisasi melarang Public IP. Gunakan Private IP (Private Service Access)                                                                                                            |
-| `pg_dump` 18 menghasilkan impor yang gagal                             | Baris `\restrict` / `\unrestrict` tidak dikenal impor Cloud SQL. Buang seperti di [4.5](#45-menyiapkan-dari-nol) langkah 5                                                                      |
-| Studio terkesan login sebagai `so2_app` tetapi `CREATE TABLE` berhasil | Sesi Studio masih berjalan sebagai `postgres`. Cek `SELECT current_user;`. Hak `so2_app` dapat diperiksa dengan `has_schema_privilege('so2_app','public','CREATE')`                             |
-| Build gagal: `storage.objects.get` ditolak                             | Akun layanan build belum punya izin. Beri peran seperti di [4.5](#45-menyiapkan-dari-nol) langkah 7                                                                                             |
-| Kontainer gagal start, log: `Memory limit of 2048 MiB exceeded`        | Pemuatan sepuluh model butuh lebih dari 2 GiB. Naikkan: `gcloud run services update so2-api --region asia-southeast2 --memory 4Gi --cpu 2`                                                      |
-| `allUsers` ditolak: "do not belong to a permitted customer"            | Kebijakan `iam.allowedPolicyMemberDomains` aktif. Admin organisasi dapat menggantinya di tingkat project (Organization Policies, atau `gcloud org-policies set-policy` dengan `allowAll: true`) |
-| `firebase` membalas 401 saat `addfirebase` atau `deploy`               | Login Firebase kedaluwarsa. `firebase logout` lalu `firebase login`                                                                                                                             |
-| 504 pada situs, tetapi URL Cloud Run langsung berfungsi                | Firebase membatasi permintaan yang diteruskan sekitar 60 detik; _cold start_ (pemuatan model) bisa melewatinya. `gcloud run services update so2-api --region asia-southeast2 --min-instances 1` |
-| Perubahan tampilan belum terlihat setelah deploy                       | Cache browser. Tekan Ctrl+F5                                                                                                                                                                    |
-| Penjadwal per jam tetap memakai kode lama                              | Cloud Run Job belum diperbarui. Jalankan `.\deploy.ps1 -Backend` (tanpa `-TanpaJob`)                                                                                                            |
-
----
-
-## 5. Yang belum ada
-
-- Pengujian black box dan pengujian UEQ, mengacu Gambar 22 benchmark.
-- Catatan operasional Bab 4, yang hanya terkumpul dengan membiarkan penjadwal
-  produksi menyala terus.
