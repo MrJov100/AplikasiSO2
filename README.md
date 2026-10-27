@@ -94,7 +94,7 @@ unduh dari python.org dan pasang, **centang "Add python.exe to PATH"**.
 
 ### 3.2 Buka folder ini di VS Code
 
-File > Open Folder, pilih `C:\Penyimpanan Utama\Dekstop\C.Database1\AplikasiSO2`,
+File > Open Folder, pilih `C:\Penyimpanan Utama\Dekstop\AplikasiSO2`,
 lalu buka terminal dengan Ctrl+Shift+` (backtick).
 
 ### 3.3 Buat lingkungan virtual
@@ -456,7 +456,7 @@ tidak tersinkron otomatis: setiap bagian harus di-deploy sendiri.
 4. Publikasikan:
 
    ```powershell
-   cd "C:\Penyimpanan Utama\Dekstop\C.Database1\AplikasiSO2"
+   cd "C:\Penyimpanan Utama\Dekstop\AplikasiSO2"
    .\deploy.ps1 -Frontend
    ```
 
