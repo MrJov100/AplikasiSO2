@@ -1193,9 +1193,8 @@ button.tautan:hover {
   }
 }
 
-/* Riwayat sinkronisasi: semua kolom tetap satu baris. Kolom Keterangan
-   (width 100%, max-width 0 di Monitoring.jsx) hanya mengisi sisa lebar dan
-   memotong teksnya, sehingga panjang keterangan tidak mengubah bentuk tabel. */
+/* Riwayat sinkronisasi: semua kolom tetap satu baris. Keterangan galat dibuka
+   lewat tombol Detail (dialog), jadi tidak mengubah bentuk tabel. */
 .tabel-siklus th,
 .tabel-siklus td {
   white-space: nowrap;

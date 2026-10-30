@@ -21,6 +21,8 @@ export default function Monitoring() {
   const [muatUlang, setMuatUlang] = useState(0);
   const [peringatan, setPeringatan] = useState(null);
   const [halaman, setHalaman] = useState(1);
+  // Siklus yang keterangan galatnya sedang dibuka di dialog.
+  const [detail, setDetail] = useState(null);
 
   // Endpoint yang dimuat untuk tiap tab.
   const JALUR = {
@@ -170,6 +172,15 @@ export default function Monitoring() {
         />
       )}
 
+      {detail && (
+        <Sorot
+          jenis="galat"
+          judul={`Masalah siklus ${jam(detail.waktu_mulai)}`}
+          pesan={detail.keterangan}
+          tutup={() => setDetail(null)}
+        />
+      )}
+
       {siklusBuruk && (
         <div className="catatan galat" style={{ marginBottom: "1rem" }}>
           <b>Siklus sinkronisasi terakhir {siklusTerakhir.status}.</b> Mulai{" "}
@@ -289,7 +300,7 @@ export default function Monitoring() {
                     <th className="angka">Prediksi ok</th>
                     <th className="angka">Prediksi gagal</th>
                     <th className="angka">Aktual terisi</th>
-                    <th>Keterangan</th>
+                    <th style={{ width: "1%" }}>Keterangan</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -325,25 +336,19 @@ export default function Monitoring() {
                       <td className="angka">{s.prediksi_berhasil ?? "—"}</td>
                       <td className="angka">{s.prediksi_gagal ?? "—"}</td>
                       <td className="angka">{s.aktual_terisi ?? "—"}</td>
-                      {/* Alasan kegagalan penarikan dalam bahasa admin.
-                      width 100% + maxWidth 0: sel ini hanya mengambil sisa
-                      lebar tabel, jadi teks panjang tidak menyempitkan kolom
-                      lain. Teks dipotong satu baris; isi lengkap di tooltip. */}
-                      <td
-                        className="kecil"
-                        title={s.keterangan || undefined}
-                        style={{
-                          width: "100%",
-                          maxWidth: 0,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          color: s.keterangan
-                            ? "var(--sangat-buruk)"
-                            : undefined,
-                        }}
-                      >
-                        {s.keterangan || "—"}
+                      {/* Alasan kegagalan penarikan dibuka lewat tombol, supaya
+                      teks panjang tidak mengubah lebar kolom tabel. */}
+                      <td>
+                        {s.keterangan ? (
+                          <button
+                            className="kecil"
+                            onClick={() => setDetail(s)}
+                          >
+                            Detail
+                          </button>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                     </tr>
                   ))}
