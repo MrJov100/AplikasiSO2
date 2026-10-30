@@ -277,17 +277,9 @@ class LayananSinkronisasi:
         # Jumlah yang dicatat tetap jumlah SEL pada langkah penarikan, supaya
         # arti kolomnya tidak berubah bagi riwayat yang sudah ada. Yang berubah
         # hanyalah status: 'berhasil' kini menuntut ketiga langkah lancar.
-        # Aturannya sama persis dengan penjadwal.satu_siklus().
-        if gagal == 0 and not hasil["gagal"]:
-            status = "berhasil"
-        elif berhasil == 0 and hasil["berhasil"] == 0:
-            status = "gagal"
-        elif berhasil == 0:
-            # Pengamatan masuk, tetapi tidak satu pun prediksi terbentuk.
-            # Itu kegagalan, bukan keberhasilan sebagian.
-            status = "gagal"
-        else:
-            status = "sebagian"
+        # Aturannya satu fungsi bersama dengan penjadwal.satu_siklus().
+        status = bd.status_siklus(hasil["berhasil"], hasil["gagal"],
+                                  berhasil, gagal)
 
         try:
             with s.transaction():

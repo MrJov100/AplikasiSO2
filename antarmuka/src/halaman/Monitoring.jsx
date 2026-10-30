@@ -257,7 +257,22 @@ export default function Monitoring() {
                   </td>
                   <td>{jam(b.sinkronisasi_terakhir)}</td>
                   <td className="kecil">
-                    {b.status_sinkronisasi || "—"}
+                    {/* Warna sama dengan lencana Riwayat: gagal merah. */}
+                    {b.status_sinkronisasi ? (
+                      <span
+                        className={`lencana ${
+                          b.status_sinkronisasi === "berhasil"
+                            ? "baik"
+                            : b.status_sinkronisasi === "gagal"
+                              ? "gagal"
+                              : "abu"
+                        }`}
+                      >
+                        {b.status_sinkronisasi}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
                     {b.pesan_galat && (
                       <div style={{ color: "var(--sangat-buruk)" }}>
                         {b.pesan_galat}

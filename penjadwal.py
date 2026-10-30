@@ -111,19 +111,11 @@ def satu_siklus(simpan=True):
 
         # --- Segel status siklus --------------------------------------------
         #
-        # Jumlah yang dicatat tetap jumlah sel pada langkah penarikan; hanya
-        # status yang kini menuntut ketiga langkah lancar. Prediksi gagal
-        # seluruhnya = 'gagal', gagal sebagian = 'sebagian'.
+        # Jumlah yang dicatat tetap jumlah sel pada langkah penarikan; aturan
+        # status ada di bd.status_siklus(), sama dengan sinkronisasi manual.
         if simpan:
-            if gagal == 0 and not hasil["gagal"]:
-                status = "berhasil"
-            elif berhasil == 0 and hasil["berhasil"] == 0:
-                status = "gagal"
-            elif berhasil == 0:
-                # Pengamatan masuk, tetapi tidak ada prediksi: tetap kegagalan.
-                status = "gagal"
-            else:
-                status = "sebagian"
+            status = bd.status_siklus(hasil["berhasil"], hasil["gagal"],
+                                      berhasil, gagal)
             bd.selesaikan_siklus(sambungan, hasil["id_siklus"],
                                  hasil["berhasil"], hasil["gagal"], status)
             bd.catat_langkah_siklus(sambungan, hasil["id_siklus"],

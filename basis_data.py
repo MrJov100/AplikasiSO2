@@ -234,16 +234,9 @@ WHERE  id_siklus = %(id_siklus)s
 
 # Langkah 1 selesai BUKAN berarti siklus selesai.
 #
-# Sampai 1 Oktober 2026 hanya ada SQL_SELESAI_SIKLUS, dan langkah 1 memanggilnya
-# dengan status 'berhasil' lalu commit. Dua langkah sesudahnya -- prediksi dan
-# pengisian nilai aktual -- tidak pernah menyentuh baris itu lagi. Akibatnya
-# siklus yang kehilangan kesepuluh prediksinya tetap tercatat 'berhasil', dan
-# riwayat sinkronisasi menunjukkan jam 01.00-07.00 aman padahal tidak ada satu
-# pun prediksi terbentuk. Terminal menulis "DENGAN KEGAGALAN", tetapi itu hanya
-# variabel lokal yang tidak pernah sampai ke basis data.
-#
-# Karena itu langkah 1 kini menutup bagiannya sendiri saja, dan status akhir
-# siklus disetel sesudah ketiga langkah selesai.
+# Langkah 1 hanya menutup bagiannya sendiri. Status akhir siklus baru disetel
+# sesudah ketiga langkah (penarikan, prediksi, pengisian nilai aktual) selesai,
+# supaya siklus yang gagal membentuk prediksi tidak tercatat 'berhasil'.
 SQL_SELESAI_TARIKAN = """
 UPDATE siklus_sinkronisasi
 SET    jumlah_berhasil = %(berhasil)s,
@@ -406,6 +399,23 @@ def catat_rincian_gagal(sambungan, id_siklus, kode_sel, pesan, durasi):
 def status_tarikan(berhasil, gagal):
     """Status langkah penarikan saja, dihitung dari jumlah sel."""
     return "berhasil" if gagal == 0 else "gagal" if berhasil == 0 else "sebagian"
+
+
+def status_siklus(tarik_berhasil, tarik_gagal, prediksi_berhasil, prediksi_gagal):
+    """Status gabungan satu siklus. Dipakai penjadwal dan sinkronisasi manual.
+
+    - berhasil: semua sel tertarik dan semua prediksi terbentuk.
+    - gagal: tidak ada sel yang tertarik, ATAU tidak ada prediksi terbentuk.
+    - sebagian: selain itu.
+
+    Tarik 0 berhasil = gagal walaupun prediksi terbentuk: prediksi itu hanya
+    mengulang dari data lama.
+    """
+    if tarik_gagal == 0 and prediksi_gagal == 0:
+        return "berhasil"
+    if tarik_berhasil == 0 or prediksi_berhasil == 0:
+        return "gagal"
+    return "sebagian"
 
 
 def selesaikan_tarikan(sambungan, id_siklus, berhasil, gagal):
