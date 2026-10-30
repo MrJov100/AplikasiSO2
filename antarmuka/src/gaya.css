@@ -1192,3 +1192,11 @@ button.tautan:hover {
     height: 300px;
   }
 }
+
+/* Riwayat sinkronisasi: semua kolom tetap satu baris. Kolom Keterangan
+   (width 100%, max-width 0 di Monitoring.jsx) hanya mengisi sisa lebar dan
+   memotong teksnya, sehingga panjang keterangan tidak mengubah bentuk tabel. */
+.tabel-siklus th,
+.tabel-siklus td {
+  white-space: nowrap;
+}

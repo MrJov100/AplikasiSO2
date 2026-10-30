@@ -277,7 +277,7 @@ export default function Monitoring() {
                 {data.length > 0 &&
                   ` · menampilkan ${mulai + 1}–${mulai + tampil.length}`}
               </p>
-              <table>
+              <table className="tabel-siklus">
                 <thead>
                   <tr>
                     <th>Mulai</th>
@@ -325,15 +325,23 @@ export default function Monitoring() {
                       <td className="angka">{s.prediksi_berhasil ?? "—"}</td>
                       <td className="angka">{s.prediksi_gagal ?? "—"}</td>
                       <td className="angka">{s.aktual_terisi ?? "—"}</td>
-                      {/* Alasan kegagalan penarikan dalam bahasa admin, dan
-                      kapan penarikan ulang otomatis berikutnya. */}
+                      {/* Alasan kegagalan penarikan dalam bahasa admin.
+                      width 100% + maxWidth 0: sel ini hanya mengambil sisa
+                      lebar tabel, jadi teks panjang tidak menyempitkan kolom
+                      lain. Teks dipotong satu baris; isi lengkap di tooltip. */}
                       <td
                         className="kecil"
-                        style={
-                          s.keterangan
-                            ? { color: "var(--sangat-buruk)", minWidth: "16rem" }
-                            : undefined
-                        }
+                        title={s.keterangan || undefined}
+                        style={{
+                          width: "100%",
+                          maxWidth: 0,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          color: s.keterangan
+                            ? "var(--sangat-buruk)"
+                            : undefined,
+                        }}
                       >
                         {s.keterangan || "—"}
                       </td>
