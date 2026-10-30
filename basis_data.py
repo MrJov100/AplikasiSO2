@@ -327,10 +327,22 @@ def mulai_siklus(sambungan, pemicu="penjadwal", id_pengguna=None):
         return k.fetchone()["id_siklus"]
 
 
+# Penarikan ulang dalam siklus yang sama memakai baris rincian yang sudah ada
+# (kekangan unik id_siklus, id_lokasi), bukan menyisipkan baris kedua.
+SQL_BUKA_RINCIAN = SQL_RINCIAN.replace(
+    "RETURNING id_sinkronisasi",
+    """ON CONFLICT (id_siklus, id_lokasi) DO UPDATE SET
+    status = EXCLUDED.status, pesan_galat = EXCLUDED.pesan_galat
+RETURNING id_sinkronisasi""")
+
+# Batas kolom sinkronisasi_lokasi.pesan_galat (varchar 255).
+PANJANG_PESAN_GALAT = 255
+
+
 def buka_rincian(sambungan, id_siklus, kode_sel):
     """Membuka rincian sinkronisasi satu sel (berstatus 'gagal' sementara) dan mengembalikan id-nya."""
     with sambungan.cursor() as k:
-        k.execute(SQL_RINCIAN, {"id_siklus": id_siklus, "kode": kode_sel,
+        k.execute(SQL_BUKA_RINCIAN, {"id_siklus": id_siklus, "kode": kode_sel,
                                 "waktu_terakhir": None, "status": "gagal",
                                 "pesan": "belum selesai"})
         return k.fetchone()["id_sinkronisasi"]
@@ -365,10 +377,12 @@ def catat_rincian_gagal(sambungan, id_siklus, kode_sel, pesan, durasi):
     Dicoba UPDATE lebih dulu, baru INSERT. Sel yang gagal SESUDAH
     buka_rincian() biasanya kehilangan baris rinciannya bersama savepoint,
     tetapi tidak selalu -- dan INSERT buta pada baris yang masih ada akan
-    ditolak kekangan unik (id_siklus, id_lokasi). Pesan dipotong agar galat
-    berantai yang panjang tidak ikut menolak perintahnya.
+    ditolak kekangan unik (id_siklus, id_lokasi). Pesan dipotong ke panjang
+    kolom (varchar 255) agar galat yang panjang tidak ikut menolak perintahnya.
     """
-    pesan = (pesan or "")[:500]
+    pesan = pesan or ""
+    if len(pesan) > PANJANG_PESAN_GALAT:
+        pesan = pesan[:PANJANG_PESAN_GALAT - 3] + "..."
     with sambungan.cursor() as k:
         k.execute(SQL_RINCIAN_GAGAL, {"id_siklus": id_siklus, "kode": kode_sel,
                                       "pesan": pesan, "durasi": durasi})

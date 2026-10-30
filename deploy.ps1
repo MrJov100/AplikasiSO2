@@ -88,7 +88,11 @@ if ($Backend) {
                 --format="value(spec.template.spec.containers[0].image)"
             if (-not $citra) { Gagal "tidak dapat membaca image service." }
 
-            gcloud run jobs update $NamaJob --region $Wilayah --image $citra
+            # Batas waktu 3600 detik: sel yang gagal ditarik ulang tiap 5 menit
+            # sampai menit ke-55, jadi satu siklus bisa berjalan hampir satu jam.
+            # Dengan batas lama (900 detik) Job dihentikan di tengah penarikan
+            # ulang dan siklusnya tertinggal berstatus 'berjalan'.
+            gcloud run jobs update $NamaJob --region $Wilayah --image $citra --task-timeout 3600s
             if ($LASTEXITCODE -ne 0) { Gagal "gcloud run jobs update." }
         }
     }

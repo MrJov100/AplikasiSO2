@@ -13,6 +13,17 @@ URUTAN LANGKAH
 Tiap langkah di-commit terpisah. Jika langkah 2 gagal, pengamatan tetap
 tersimpan dan siklus berikutnya mencoba lagi.
 
+PENARIKAN ULANG
+
+Sel yang gagal ditarik, karena sebab apa pun, ditarik ulang tiap 5 menit
+sampai berhasil. Putaran terakhir mulai paling lambat menit ke-BATAS_ULANG_MENIT
+jam yang sama, supaya langkah 2 masih membentuk prediksi untuk jam berikutnya
+sebelum siklus berikutnya berangkat. Batas jam pengamatan dikunci pada awal
+siklus, sehingga putaran ulang tidak menggeser target prediksi.
+
+Akibatnya satu siklus bisa berjalan hampir satu jam. Batas waktu Cloud Run Job
+(so2-siklus) karena itu 3600 detik; lihat deploy.ps1.
+
 JADWAL
 
 - Berangkat pada menit ke-MENIT_JADWAL (bawaan 10, bisa diubah di .env), bukan
@@ -25,13 +36,17 @@ import argparse
 import sys
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import basis_data as bd
 import jalankan_prediksi as jp
 import model as md
+import penarikan as tarik
 import segarkan_pengamatan as sp
 from konfigurasi import KODE_SEL, MENIT_JADWAL, VERSI_MODEL, ZONA
+
+# Putaran penarikan ulang terakhir mulai paling lambat menit ini.
+BATAS_ULANG_MENIT = 55
 
 
 def catat(*bagian):
@@ -51,8 +66,12 @@ def satu_siklus(simpan=True):
         # --- Langkah 1 ------------------------------------------------------
         catat("Langkah 1/3 — menyegarkan pengamatan")
         # segel_status=False: status akhir disetel di bawah, sesudah langkah 3.
-        hasil = sp.jalankan_siklus(sambungan, KODE_SEL, simpan, cetak=catat,
-                                   segel_status=False)
+        # Mode coba (simpan=False) tidak menunggu penarikan ulang.
+        jam = tarik.jam_sekarang()
+        hasil = sp.jalankan_siklus(
+            sambungan, KODE_SEL, simpan, batas=jam, cetak=catat,
+            segel_status=False,
+            ulang_hingga=jam + timedelta(minutes=BATAS_ULANG_MENIT) if simpan else None)
         if hasil["gagal"]:
             lancar = False
         if simpan:

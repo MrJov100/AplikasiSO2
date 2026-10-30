@@ -41,55 +41,95 @@ KE_KOLOM_DB = {
 }
 
 
-class PenolakanAPI(RuntimeError):
-    """Open-Meteo menolak permintaannya sendiri — bukan galat sesaat.
+class GalatPenarikan(RuntimeError):
+    """Penarikan Open-Meteo gagal. Teks galatnya ditulis untuk dibaca admin.
 
-    Open-Meteo mengembalikan penolakan parameter sebagai badan JSON
-    {"error": true, "reason": ...}, BUKAN sebagai status 4xx. Sebelum
-    1 Oktober 2026 penolakan itu dilempar sebagai RuntimeError biasa sehingga
-    tertangkap cabang pengulangan: satu permintaan yang pasti ditolak tetap
-    dicoba tiga kali dengan jeda menggandakan, memboroskan ±9 detik per sel dan
-    menyembunyikan sebab aslinya di balik "Gagal setelah 3 percobaan".
-    Kelas sendiri membuatnya lolos tanpa diulang, seperti niat docstring.
+    Pesan ini disimpan apa adanya di sinkronisasi_lokasi.pesan_galat
+    (varchar 255) dan ditampilkan di halaman Monitoring, jadi harus pendek dan
+    menyebut sumber mana yang gagal (data SO2 atau data cuaca).
     """
 
 
-def _minta(url, params):
+class PenolakanAPI(GalatPenarikan):
+    """Open-Meteo menjawab 4xx: parameter permintaan ditolak.
+
+    Tetap dicoba ulang seperti galat lain. Pada 26 dan 30 Oktober 2026 pukul
+    07.10 WIB (00.10 UTC, saat arsip berganti tanggal) Open-Meteo menjawab
+    {"error": true, "reason": "Something went wrong."}. Kode lama menganggap
+    setiap badan JSON berisi "error" sebagai penolakan permanen dan tidak
+    mengulangnya, padahal itu galat server sesaat. Penarikan manual 29 menit
+    kemudian berhasil. Sejak itu tidak ada lagi kegagalan yang dikecualikan
+    dari pengulangan.
+    """
+
+
+def _ringkas(teks, panjang=80):
+    """Potong teks dari sumber luar agar pesan admin tetap muat 255 karakter."""
+    teks = " ".join(str(teks or "").split())
+    return teks if len(teks) <= panjang else teks[:panjang - 3] + "..."
+
+
+def _galat_tanggapan(r, isi, sumber):
+    """Ubah tanggapan Open-Meteo yang tidak berhasil menjadi galat untuk admin."""
+    kode = r.status_code
+    alasan = _ringkas(isi.get("reason")) if isinstance(isi, dict) else ""
+    if isi is None:
+        return GalatPenarikan(
+            f"Open-Meteo mengirim jawaban yang tidak dapat dibaca saat menarik "
+            f"{sumber} (HTTP {kode}).")
+    if kode == 429:
+        return GalatPenarikan(
+            f"Kuota permintaan Open-Meteo habis saat menarik {sumber} (HTTP 429).")
+    if 400 <= kode < 500:
+        if "out of allowed range" in (alasan or ""):
+            return PenolakanAPI(
+                f"Arsip Open-Meteo belum menyediakan {sumber} untuk tanggal yang "
+                f"diminta (HTTP {kode}).")
+        return PenolakanAPI(
+            f"Open-Meteo menolak permintaan {sumber} (HTTP {kode}): {alasan}.")
+    # 5xx, atau 200 yang berisi {"error": true}.
+    return GalatPenarikan(
+        f"Server Open-Meteo sedang bermasalah saat menarik {sumber} "
+        f"(HTTP {kode}{': ' + alasan if alasan else ''}). Gangguan di pihak "
+        f"Open-Meteo, bukan aplikasi.")
+
+
+def _minta(url, params, sumber):
     """Kirim permintaan dengan percobaan ulang dan jeda yang menggandakan diri.
 
-    Satu kegagalan sesaat tidak boleh menghapus prediksi satu jam. Yang diulang
-    hanya galat jaringan dan 5xx. Galat 4xx dan penolakan parameter dari
-    Open-Meteo tidak diulang karena permintaannya memang salah, dan mengulangnya
-    hanya menunda kabar buruk.
+    Kegagalan apa pun diulang, sampai PERCOBAAN kali (jeda 2 lalu 4 detik).
+    Sesudah itu galat dilempar, dan penarikan ulang 5 menit kemudian
+    ditangani segarkan_pengamatan.jalankan_siklus().
     """
     jeda = JEDA_AWAL
-    galat_terakhir = None
+    galat = None
     for percobaan in range(1, PERCOBAAN + 1):
         try:
             r = requests.get(url, params=params, timeout=BATAS_WAKTU_API)
+        except requests.Timeout:
+            galat = GalatPenarikan(
+                f"Open-Meteo tidak menjawab dalam {BATAS_WAKTU_API} detik saat "
+                f"menarik {sumber}.")
+        except requests.ConnectionError:
+            galat = GalatPenarikan(
+                f"Tidak dapat terhubung ke Open-Meteo saat menarik {sumber}. "
+                f"Jaringan server terputus atau Open-Meteo tidak dapat diakses.")
+        except requests.RequestException as e:
+            galat = GalatPenarikan(
+                f"Permintaan {sumber} ke Open-Meteo gagal: "
+                f"{_ringkas(type(e).__name__ + ': ' + str(e))}.")
+        else:
             try:
                 isi = r.json()
             except ValueError:
-                r.raise_for_status()
-                raise RuntimeError(f"Tanggapan dari {url} bukan JSON")
-            if isinstance(isi, dict) and isi.get("error"):
-                raise PenolakanAPI(f"Open-Meteo menolak: {isi.get('reason')}")
-            if 400 <= r.status_code < 500:
-                r.raise_for_status()
-            r.raise_for_status()
-            return isi
-        except PenolakanAPI:
-            raise                       # penolakan tetap: jangan diulang
-        except requests.HTTPError as e:
-            if e.response is not None and 400 <= e.response.status_code < 500:
-                raise
-            galat_terakhir = e
-        except (requests.RequestException, RuntimeError) as e:
-            galat_terakhir = e
+                isi = None
+            if r.ok and isinstance(isi, dict) and not isi.get("error"):
+                return isi
+            galat = _galat_tanggapan(r, isi, sumber)
         if percobaan < PERCOBAAN:
             time.sleep(jeda)
             jeda *= 2
-    raise RuntimeError(f"Gagal setelah {PERCOBAAN} percobaan: {galat_terakhir}")
+    raise galat
 
 
 def jam_sekarang():
@@ -112,7 +152,8 @@ def tarik_sel(lintang, bujur, elevasi, hari_mundur=HARI_MUNDUR, batas_waktu=None
     isi = _minta(API_SO2, {
         "latitude": lintang, "longitude": bujur, "elevation": elevasi,
         "hourly": "sulphur_dioxide", "domains": DOMAIN_SO2,
-        "past_days": hari_mundur, "forecast_days": 1, "timezone": ZONA})
+        "past_days": hari_mundur, "forecast_days": 1, "timezone": ZONA},
+        "data SO2")
     kisi = (isi.get("latitude"), isi.get("longitude"))
     so2 = pd.DataFrame({
         "time": pd.to_datetime(isi["hourly"]["time"]),
@@ -137,7 +178,8 @@ def tarik_sel(lintang, bujur, elevasi, hari_mundur=HARI_MUNDUR, batas_waktu=None
         "start_date": (akhir_utc - timedelta(days=hari_mundur)).strftime("%Y-%m-%d"),
         "end_date": akhir_utc.strftime("%Y-%m-%d"),
         "hourly": ",".join(VAR_METEO), "models": MODEL_METEO,
-        "timezone": "UTC", **SATUAN})
+        "timezone": "UTC", **SATUAN},
+        "data cuaca")
     meteo = pd.DataFrame({"time": pd.to_datetime(isi["hourly"]["time"], utc=True)})
     for v in VAR_METEO:
         meteo[v] = pd.to_numeric(isi["hourly"][v], errors="coerce")

@@ -215,7 +215,15 @@ class SiklusSinkronisasiRepository:
                        jumlah_berhasil, jumlah_gagal,
                        (to_jsonb(s)->>'prediksi_berhasil')::int AS prediksi_berhasil,
                        (to_jsonb(s)->>'prediksi_gagal')::int    AS prediksi_gagal,
-                       (to_jsonb(s)->>'aktual_terisi')::int     AS aktual_terisi
+                       (to_jsonb(s)->>'aktual_terisi')::int     AS aktual_terisi,
+                       -- Alasan kegagalan penarikan, tanpa pengulangan: sel-sel
+                       -- yang gagal karena sebab sama membawa pesan yang sama.
+                       (SELECT string_agg(DISTINCT sl.pesan_galat, ' · ')
+                        FROM   sinkronisasi_lokasi sl
+                        WHERE  sl.id_siklus = s.id_siklus
+                          AND  sl.status = 'gagal'
+                          AND  sl.pesan_galat IS NOT NULL
+                          AND  sl.pesan_galat <> 'belum selesai') AS keterangan
                 FROM   siklus_sinkronisasi s
                 ORDER  BY waktu_mulai DESC LIMIT %s""", (batas,))
             return k.fetchall()

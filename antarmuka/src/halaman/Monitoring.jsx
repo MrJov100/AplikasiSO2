@@ -150,6 +150,9 @@ export default function Monitoring() {
             (h.aktual_terisi != null
               ? ` Nilai aktual terisi: ${h.aktual_terisi}.`
               : "") +
+            (h.galat_penarikan?.length
+              ? ` Penyebab penarikan gagal — ${h.galat_penarikan.join("; ")}`
+              : "") +
             (h.galat_prediksi?.length
               ? ` Contoh galat — ${h.galat_prediksi.join("; ")}`
               : "")
@@ -286,6 +289,7 @@ export default function Monitoring() {
                     <th className="angka">Prediksi ok</th>
                     <th className="angka">Prediksi gagal</th>
                     <th className="angka">Aktual terisi</th>
+                    <th>Keterangan</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -321,6 +325,18 @@ export default function Monitoring() {
                       <td className="angka">{s.prediksi_berhasil ?? "—"}</td>
                       <td className="angka">{s.prediksi_gagal ?? "—"}</td>
                       <td className="angka">{s.aktual_terisi ?? "—"}</td>
+                      {/* Alasan kegagalan penarikan dalam bahasa admin, dan
+                      kapan penarikan ulang otomatis berikutnya. */}
+                      <td
+                        className="kecil"
+                        style={
+                          s.keterangan
+                            ? { color: "var(--sangat-buruk)", minWidth: "16rem" }
+                            : undefined
+                        }
+                      >
+                        {s.keterangan || "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
