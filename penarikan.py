@@ -52,14 +52,6 @@ class GalatPenarikan(RuntimeError):
 
 class PenolakanAPI(GalatPenarikan):
     """Open-Meteo menjawab 4xx: parameter permintaan ditolak.
-
-    Tetap dicoba ulang seperti galat lain. Pada 26 dan 30 Oktober 2026 pukul
-    07.10 WIB (00.10 UTC, saat arsip berganti tanggal) Open-Meteo menjawab
-    {"error": true, "reason": "Something went wrong."}. Kode lama menganggap
-    setiap badan JSON berisi "error" sebagai penolakan permanen dan tidak
-    mengulangnya, padahal itu galat server sesaat. Penarikan manual 29 menit
-    kemudian berhasil. Sejak itu tidak ada lagi kegagalan yang dikecualikan
-    dari pengulangan.
     """
 
 

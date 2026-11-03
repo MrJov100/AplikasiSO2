@@ -162,14 +162,6 @@ export default function Visualisasi({ admin }) {
               </LineChart>
             </ResponsiveContainer>
           </div>
-
-          {!tampilkanBakuMutu && (
-            <p className="kecil">
-              Garis baku mutu 150 µg/m³ tidak digambar karena seluruh nilai pada
-              rentang ini jauh di bawahnya; menggambarnya akan membuat grafik
-              sulit dibaca.
-            </p>
-          )}
         </div>
       )}
     </>
