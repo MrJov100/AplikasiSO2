@@ -167,12 +167,9 @@ export default function RiwayatPrediksi() {
                       {info && (
                         <span className="balon" role="tooltip">
                           Skill score = 1 − (RMSE stacking ÷ RMSE persistensi)².
-                          Persistensi berarti menebak nilai jam depan sama
-                          dengan nilai jam ini. Di atas 0: stacking lebih akurat
-                          daripada tebakan itu; 1: sempurna; 0 atau negatif:
-                          tidak lebih baik. Nilai persistensi diambil dari nilai
-                          sebenarnya prediksi jam sebelumnya, sehingga baseline
-                          dan model dinilai atas data dari generasi yang sama.
+                          Persistensi = nilai jam depan ditebak sama dengan jam
+                          ini. Di atas 0: stacking lebih akurat; 1: sempurna; 0
+                          atau negatif: tidak lebih baik.
                         </span>
                       )}
                     </span>
