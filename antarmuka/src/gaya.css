@@ -1295,3 +1295,14 @@ button.tautan:hover {
     font-size: 1.45rem;
   }
 }
+/* Penjelasan cara membaca tabel Evaluasi Peringatan. */
+.penjelasan-monev {
+  margin-top: 0.9rem;
+}
+.penjelasan-monev ol {
+  margin: 0.5rem 0 0.6rem;
+  padding-left: 1.3rem;
+}
+.penjelasan-monev li {
+  margin-bottom: 0.45rem;
+}

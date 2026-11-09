@@ -90,6 +90,113 @@ function persen(n) {
   return n === null || n === undefined ? "—" : `${angka(n, 1)}%`;
 }
 
+// Memformat "bagian dari total (persen)", mis. "29 dari 38 (76.3%)".
+function dariTotal(bagian, total, nilaiPersen) {
+  return `${bagian} dari ${total} (${persen(nilaiPersen)})`;
+}
+
+// Batas "lebih dari separuh" untuk kesimpulan evaluasi, dalam persen.
+const BATAS_SEPARUH = 50;
+
+// Menyusun kalimat kesimpulan evaluasi yang mengikuti angka terkini: apakah
+// peringatan lebih sering benar daripada salah (peringatan yang terbukti), dan
+// apakah sebagian besar kenaikan besar sempat diperingatkan (kenaikan nyata
+// yang diperingatkan). Tepat 50% diberi kalimat "separuh" tersendiri dan
+// dinilai hati-hati, karena tidak lebih sering benar maupun lebih sering salah.
+// Bagian yang belum dapat dinilai (persennya kosong) dilewati.
+function kesimpulanEvaluasi(e) {
+  const tepat = e.presisi;
+  const tangkap = e.tertangkap;
+  if (tepat == null && tangkap == null) {
+    return `Belum ada peringatan maupun kenaikan besar dalam ${e.hari} hari terakhir, sehingga ketepatan peringatan belum dapat dinilai.`;
+  }
+  const kalimat = [];
+  if (tepat != null) {
+    kalimat.push(
+      tepat > BATAS_SEPARUH
+        ? "Peringatan lebih sering benar daripada salah, sehingga layak diperhatikan."
+        : tepat === BATAS_SEPARUH
+          ? "Peringatan sama seringnya benar dan keliru, sehingga sebaiknya diperlakukan sebagai indikasi awal saja."
+          : "Peringatan lebih sering keliru, sehingga sebaiknya diperlakukan sebagai indikasi awal saja.",
+    );
+  }
+  if (tangkap != null) {
+    const isi =
+      tangkap > BATAS_SEPARUH
+        ? "sebagian besar kenaikan besar berhasil diperingatkan lebih dulu."
+        : tangkap === BATAS_SEPARUH
+          ? "hanya separuh kenaikan besar yang diperingatkan lebih dulu, sehingga kondisi tiap wilayah tetap perlu dipantau walaupun tidak ada peringatan."
+          : "sebagian besar kenaikan besar terjadi tanpa peringatan, sehingga kondisi tiap wilayah tetap perlu dipantau walaupun tidak ada peringatan.";
+    if (tepat == null) {
+      kalimat.push(isi.charAt(0).toUpperCase() + isi.slice(1));
+    } else {
+      // "Namun" bila kedua penilaian berlawanan arah, "Selain itu" bila searah.
+      const searah = tepat > BATAS_SEPARUH === tangkap > BATAS_SEPARUH;
+      kalimat.push(`${searah ? "Selain itu," : "Namun"} ${isi}`);
+    }
+  }
+  return kalimat.join(" ");
+}
+
+// Penjelasan cara membaca tabel Evaluasi Peringatan dalam bahasa sehari-hari,
+// memakai angka jendela terpendek (7 hari terakhir).
+function PenjelasanEvaluasi({ e, ambang }) {
+  const batas = `${bertanda(ambang)} µg/m³ atau lebih`;
+  const terlewat = e.kenaikan_aktual - e.terbukti;
+  return (
+    <div className="catatan info penjelasan-monev">
+      <b>Cara membaca tabel {e.hari} hari terakhir</b>
+      <ol>
+        <li>
+          <b>
+            Peringatan yang terbukti:{" "}
+            {dariTotal(e.terbukti, e.peringatan, e.presisi)}
+          </b>
+          <br />
+          {e.peringatan === 0 ? (
+            <>
+              Dalam {e.hari} hari terakhir belum ada peringatan yang muncul,
+              sehingga ketepatannya belum dapat dinilai.
+            </>
+          ) : (
+            <>
+              Dalam {e.hari} hari terakhir peringatan muncul {e.peringatan}{" "}
+              kali, dan {e.terbukti} kali di antaranya konsentrasi SO₂ memang
+              naik {batas}. Artinya, jika peringatan muncul, kenaikan tersebut
+              umumnya memang terjadi.
+            </>
+          )}
+        </li>
+        <li>
+          <b>
+            Kenaikan nyata yang diperingatkan:{" "}
+            {dariTotal(e.terbukti, e.kenaikan_aktual, e.tertangkap)}
+          </b>
+          <br />
+          {e.kenaikan_aktual === 0 ? (
+            <>
+              Dalam {e.hari} hari terakhir tidak terjadi kenaikan {batas}.
+            </>
+          ) : (
+            <>
+              Dalam {e.hari} hari terakhir terjadi {e.kenaikan_aktual} kali
+              kenaikan {batas}, tetapi hanya {e.terbukti} yang didahului
+              peringatan; {terlewat} lainnya terjadi tanpa peringatan. Artinya,
+              tidak adanya peringatan belum menjamin konsentrasi tidak akan
+              naik.
+            </>
+          )}
+        </li>
+      </ol>
+      <b>Kesimpulan:</b> {kesimpulanEvaluasi(e)}
+      <div className="kecil" style={{ marginTop: ".45rem" }}>
+        Kolom yang lain dibaca dengan cara yang sama untuk rentang waktu yang
+        lebih panjang.
+      </div>
+    </div>
+  );
+}
+
 // Halaman MonEv SO₂ — Monitoring dan Evaluasi SO₂ (admin): memantau perubahan
 // konsentrasi SO₂ satu jam ke depan tiap sel grid dan mengevaluasi ketepatan
 // peringatannya. Halaman ini hanya menampilkan data; tidak ada perubahan data.
@@ -241,15 +348,15 @@ export default function Monev() {
             <tbody>
               {[
                 ["Prediksi dievaluasi", (e) => e.dievaluasi],
-                ["Peringatan", (e) => e.peringatan],
-                ["Terbukti", (e) => e.terbukti],
-                ["Presisi", (e) => persen(e.presisi)],
+                ["Peringatan yang muncul", (e) => e.peringatan],
                 [
-                  `Kenaikan aktual ${bertanda(ambang)} atau lebih`,
-                  (e) => e.kenaikan_aktual,
+                  "Peringatan yang terbukti",
+                  (e) => dariTotal(e.terbukti, e.peringatan, e.presisi),
                 ],
-                ["Tertangkap", (e) => persen(e.tertangkap)],
-                ["Kenaikan terlewat", (e) => e.terlewat],
+                [
+                  "Kenaikan nyata yang diperingatkan",
+                  (e) => dariTotal(e.terbukti, e.kenaikan_aktual, e.tertangkap),
+                ],
               ].map(([label, isi]) => (
                 <tr key={label}>
                   <td>{label}</td>
@@ -263,11 +370,9 @@ export default function Monev() {
             </tbody>
           </table>
         )}
-        <p className="kecil" style={{ marginTop: ".6rem" }}>
-          Presisi = peringatan yang terbukti ÷ seluruh peringatan. Tertangkap =
-          kenaikan aktual yang didahului peringatan ÷ seluruh kenaikan aktual.
-          Kenaikan terlewat = kenaikan aktual yang tidak didahului peringatan.
-        </p>
+        {data.evaluasi.length > 0 && (
+          <PenjelasanEvaluasi e={data.evaluasi[0]} ambang={ambang} />
+        )}
       </div>
 
       <div className="kartu">
