@@ -1,7 +1,7 @@
-"""Enam controller — lapisan Kendali.
+"""Tujuh controller — lapisan Kendali.
 
 Satu APIRouter per controller: Autentikasi, Prediksi, Visualisasi,
-Monitoring, Riwayat, Informasi. Controller hanya menerjemahkan permintaan HTTP
+Monitoring, Riwayat, Informasi, MonEv SO2. Controller hanya menerjemahkan permintaan HTTP
 menjadi panggilan layanan; tidak ada logika di sini.
 """
 import json
@@ -37,6 +37,7 @@ l_prediksi = layanan.LayananPrediksi()
 l_visual = layanan.LayananVisualisasi()
 l_sinkron = layanan.LayananSinkronisasi()
 l_riwayat = layanan.LayananRiwayat()
+l_monev = layanan.LayananMonev()
 
 
 # ============================================================ ControllerAutentikasi
@@ -285,4 +286,15 @@ def ketelitian(s=Depends(sambungan), pengguna=admin):
     return l_riwayat.ketelitian(s)
 
 
-SEMUA_ROUTER = [autentikasi, prediksi, visualisasi, informasi, monitoring, riwayat]
+# ===================================================================== ControllerMonev
+monev = APIRouter(prefix="/api/monev", tags=["MonEv SO2"])
+
+
+@monev.get("/ringkasan", response_model=skema.RingkasanMonev)
+def ringkasan_monev(s=Depends(sambungan), pengguna=admin):
+    """Status perubahan tiap sel, evaluasi peringatan, dan riwayat peringatan, khusus admin."""
+    return l_monev.ringkasan(s)
+
+
+SEMUA_ROUTER = [autentikasi, prediksi, visualisasi, informasi, monitoring, riwayat,
+                monev]

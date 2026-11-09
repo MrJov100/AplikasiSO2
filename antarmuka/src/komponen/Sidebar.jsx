@@ -161,6 +161,9 @@ export default function Sidebar({ pengguna, setPengguna }) {
               <NavLink to="/riwayat" className={kelas}>
                 Riwayat Prediksi
               </NavLink>
+              <NavLink to="/monev" className={kelas}>
+                MonEv SO₂
+              </NavLink>
             </>
           )}
         </nav>

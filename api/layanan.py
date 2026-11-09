@@ -1,9 +1,10 @@
-"""Enam layanan — lapisan Layanan.
+"""Tujuh layanan — lapisan Layanan.
 
 Layanan memanggil repositori dan modul pendukung; tidak menulis SQL sendiri.
 """
 import sys
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
@@ -16,9 +17,10 @@ import model as md                                        # noqa: E402
 import segarkan_pengamatan as sp                          # noqa: E402
 from api import repositori as repo                        # noqa: E402
 from api import keamanan                                  # noqa: E402
-from konfigurasi import (AMBANG_KATEGORI, BAKU_MUTU_1_JAM,       # noqa: E402
-                         BATAS_KEMUTAKHIRAN_JAM,
-                         KODE_SEL, VERSI_MODEL)
+from konfigurasi import (AMBANG_KATEGORI, AMBANG_PERINGATAN_KENAIKAN,  # noqa: E402
+                         BAKU_MUTU_1_JAM, BATAS_KEMUTAKHIRAN_JAM,
+                         HARI_EVALUASI_MONEV, HARI_RIWAYAT_PERINGATAN,
+                         KODE_SEL, PITA_STABIL, VERSI_MODEL)
 
 
 def _kemutakhiran(waktu_terakhir):
@@ -360,3 +362,132 @@ class LayananRiwayat:
             hasil["skill_score_arsip"] = (
                 1 - (hasil["rmse_stacking"] / hasil["rmse_persistensi_arsip"]) ** 2)
         return hasil
+
+
+class LayananMonev:
+    """Layanan Modul MonEv SO2: status perubahan tiap sel dan evaluasi peringatannya.
+
+    Modul ini hanya menyajikan; tidak ada data yang diubah, dihapus, atau
+    dikecualikan. Ambang dan pita stabil dibaca dari konfigurasi.py, dan
+    alasannya dicatat di sana.
+    """
+
+    def __init__(self):
+        """Menyiapkan repositori MonEv SO2."""
+        self.r = repo.MonevRepository()
+
+    @staticmethod
+    def status_perubahan(perubahan):
+        """Memetakan besar perubahan (ug/m3) ke status Peringatan, Naik, Stabil, atau Turun."""
+        if perubahan is None:
+            return None
+        if perubahan >= AMBANG_PERINGATAN_KENAIKAN:
+            return "Peringatan"
+        if perubahan >= PITA_STABIL:
+            return "Naik"
+        if perubahan <= -PITA_STABIL:
+            return "Turun"
+        return "Stabil"
+
+    @staticmethod
+    def _persen(pembilang, penyebut):
+        """Persentase dua bilangan, atau None bila penyebutnya nol."""
+        return round(pembilang / penyebut * 100, 1) if penyebut else None
+
+    def kondisi_terkini(self, s):
+        """Status perubahan prediksi terbaru tiap sel, diurutkan dari kenaikan terbesar."""
+        sekarang = md.jam_sekarang()
+        hasil = []
+        for b in self.r.kondisi_terkini(s):
+            dasar = float(b["so2_dasar"]) if b["so2_dasar"] is not None else None
+            nilai = float(b["nilai_so2"])
+            perubahan = round(nilai - dasar, 2) if dasar is not None else None
+            hasil.append({
+                "kode_sel": b["kode_sel"], "nama": b["nama"],
+                "waktu_dasar": b["waktu_dasar"],
+                "waktu_prediksi": b["waktu_prediksi"],
+                "so2_dasar": dasar, "nilai_so2": nilai,
+                "kategori": b["kategori"], "perubahan": perubahan,
+                "status": self.status_perubahan(perubahan),
+                # Jam target sudah lewat: prediksi belum diganti yang baru.
+                "prediksi_basi": pd.Timestamp(b["waktu_prediksi"]) < sekarang})
+        # Kenaikan terbesar di atas; sel tanpa dasar perbandingan paling bawah.
+        hasil.sort(key=lambda h: (h["perubahan"] is None,
+                                  -(h["perubahan"] or 0)))
+        return hasil
+
+    def evaluasi(self, s, acuan):
+        """Ringkasan ketepatan peringatan untuk setiap jendela evaluasi (7 dan 30 hari) yang berakhir pada acuan."""
+        ambang = Decimal(str(AMBANG_PERINGATAN_KENAIKAN))
+        hasil = []
+        for hari in HARI_EVALUASI_MONEV:
+            sejak = acuan - timedelta(days=hari)
+            e = self.r.evaluasi(s, sejak, ambang)
+            peringatan = int(e["peringatan"] or 0)
+            terbukti = int(e["terbukti"] or 0)
+            kenaikan = int(e["kenaikan_aktual"] or 0)
+            hasil.append({
+                "hari": hari,
+                # Jam target pertama yang tercakup (kueri memakai "> sejak").
+                "mulai": sejak + timedelta(hours=1), "akhir": acuan,
+                "dievaluasi": int(e["dievaluasi"] or 0),
+                "peringatan": peringatan,
+                "terbukti": terbukti,
+                # Presisi: dari seluruh peringatan, berapa persen yang terbukti.
+                "presisi": self._persen(terbukti, peringatan),
+                "kenaikan_aktual": kenaikan,
+                # Tertangkap: dari seluruh kenaikan aktual >= ambang, berapa
+                # persen yang sudah didahului peringatan.
+                "tertangkap": self._persen(terbukti, kenaikan),
+                "terlewat": kenaikan - terbukti,
+                "jam_awal": e["jam_awal"], "jam_akhir": e["jam_akhir"]})
+        return hasil
+
+    def riwayat_peringatan(self, s, sejak):
+        """Daftar peringatan sejak waktu tertentu, masing-masing dengan keterangan terbukti atau belum."""
+        ambang = Decimal(str(AMBANG_PERINGATAN_KENAIKAN))
+        baris = self.r.riwayat_peringatan(s, sejak, ambang)
+        hasil = []
+        for b in baris:
+            aktual = (float(b["perubahan_aktual"])
+                      if b["perubahan_aktual"] is not None else None)
+            hasil.append({
+                "kode_sel": b["kode_sel"], "nama": b["nama"],
+                "waktu_dasar": b["waktu_dasar"],
+                "waktu_prediksi": b["waktu_prediksi"],
+                "so2_dasar": float(b["so2_dasar"]),
+                "nilai_so2": float(b["nilai_so2"]),
+                "nilai_aktual": (float(b["nilai_aktual"])
+                                 if b["nilai_aktual"] is not None else None),
+                "perubahan_prediksi": round(float(b["perubahan_prediksi"]), 2),
+                "perubahan_aktual": round(aktual, 2) if aktual is not None else None,
+                # None berarti nilai aktual jam target belum tiba.
+                "terbukti": (aktual >= AMBANG_PERINGATAN_KENAIKAN
+                             if aktual is not None else None)})
+        return hasil
+
+    def ringkasan(self, s):
+        """Seluruh isi halaman MonEv SO2 dalam satu tanggapan.
+
+        JENDELA DIHITUNG MUNDUR DARI PREDIKSI TERBARU, BUKAN DARI JAM SEKARANG.
+
+        "7 hari terakhir" berarti 7 x 24 jam yang berakhir pada jam target
+        prediksi terbaru yang tersimpan (acuan). Kalau acuannya jam sekarang,
+        basis data yang penjadwalnya sempat berhenti -- misalnya basis data
+        lokal -- akan menampilkan nol pada seluruh jendela walaupun datanya ada.
+        Acuan dan batas tiap jendela ikut dikirim dan ditampilkan, sehingga
+        admin tetap melihat sampai kapan data yang dievaluasi.
+        """
+        acuan = self.r.jam_prediksi_terakhir(s)
+        dasar = {"ambang_peringatan": AMBANG_PERINGATAN_KENAIKAN,
+                 "pita_stabil": PITA_STABIL,
+                 "hari_riwayat": HARI_RIWAYAT_PERINGATAN,
+                 "acuan": acuan,
+                 "kondisi": self.kondisi_terkini(s)}
+        if acuan is None:
+            return {**dasar, "riwayat_mulai": None, "evaluasi": [], "riwayat": []}
+        sejak_riwayat = acuan - timedelta(days=HARI_RIWAYAT_PERINGATAN)
+        return {**dasar,
+                "riwayat_mulai": sejak_riwayat + timedelta(hours=1),
+                "evaluasi": self.evaluasi(s, acuan),
+                "riwayat": self.riwayat_peringatan(s, sejak_riwayat)}

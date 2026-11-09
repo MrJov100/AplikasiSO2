@@ -35,6 +35,25 @@ BAKU_MUTU_1_JAM = 150.0
 
 KODE_SEL = [f"G{i:02d}" for i in range(1, 11)]
 
+# ------------------------------------- Modul MonEv SO2 (Monitoring dan Evaluasi)
+# Perubahan = prediksi satu jam ke depan dikurangi konsentrasi teramati terakhir
+# (potret sezaman; lihat MonevRepository di api/repositori.py).
+#
+# Ambang peringatan 8 ug/m3 = persentil ke-95 kenaikan SO2 antara dua jam
+# berurutan: 8,0 pada data historis (naskah Bab I) dan 7,9 pada 40 hari data
+# operasional (29 Sep - 9 Nov 2026). Kenaikan sebesar itu termasuk 5% kenaikan
+# terbesar, sekaligus kira-kira lima kali galat rata-rata model.
+#
+# Pita stabil 1,5 ug/m3 = MAE operasional (naskah Bab IV: 1,5330). Perubahan yang
+# lebih kecil dari galat rata-rata model tidak dapat dibedakan dari galat itu
+# sendiri, sehingga dinyatakan "Stabil".
+AMBANG_PERINGATAN_KENAIKAN = 8.0
+PITA_STABIL = 1.5
+# Jendela dihitung mundur dari jam target prediksi TERBARU yang tersimpan, bukan
+# dari jam saat ini; alasannya di LayananMonev.ringkasan (api/layanan.py).
+HARI_EVALUASI_MONEV = (7, 30)     # dua jendela evaluasi yang ditampilkan berdampingan
+HARI_RIWAYAT_PERINGATAN = 7       # rentang daftar riwayat peringatan
+
 HARI_MUNDUR = 3          # cukup menjangkau t-1..t-3 dengan margin, dan sekaligus
                          # mencakup dua sampai tiga batas run 00z/12z
 

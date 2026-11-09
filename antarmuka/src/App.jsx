@@ -12,9 +12,10 @@ import Tentang from './halaman/Tentang.jsx'
 import Masuk from './halaman/Masuk.jsx'
 import Monitoring from './halaman/Monitoring.jsx'
 import RiwayatPrediksi from './halaman/RiwayatPrediksi.jsx'
+import Monev from './halaman/Monev.jsx'
 
 // Komponen akar: memulihkan sesi admin dari token, lalu menyusun sidebar dan rute
-// halaman; halaman Monitoring dan Riwayat hanya bisa dibuka admin.
+// halaman; halaman Monitoring, Riwayat, serta MonEv SO₂ hanya bisa dibuka admin.
 export default function App() {
   const [pengguna, setPengguna] = useState(null)
   const [siap, setSiap] = useState(false)
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/masuk" element={<Masuk pengguna={pengguna} setPengguna={setPengguna} />} />
           <Route path="/monitoring" element={khususAdmin(<Monitoring />)} />
           <Route path="/riwayat" element={khususAdmin(<RiwayatPrediksi />)} />
+          <Route path="/monev" element={khususAdmin(<Monev />)} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <footer className="kaki-halaman">© 2026 Selterra - Jovandi Todana</footer>

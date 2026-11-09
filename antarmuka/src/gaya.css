@@ -1199,3 +1199,99 @@ button.tautan:hover {
 .tabel-siklus td {
   white-space: nowrap;
 }
+
+/* MonEv SO₂: kolom tabel tetap satu baris (digulir ke samping di
+   layar sempit), dan panah perubahan diberi warna sesuai statusnya. */
+.tabel-monev th,
+.tabel-monev td {
+  white-space: nowrap;
+}
+.arah-peringatan {
+  color: var(--gagal);
+  font-weight: 600;
+}
+.arah-naik {
+  color: var(--buruk);
+}
+.arah-stabil {
+  color: var(--abu);
+}
+.arah-turun {
+  color: var(--baik);
+}
+/* Rentang tanggal di bawah judul kolom jendela evaluasi. */
+.rentang-jendela {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-top: 0.15rem;
+}
+/* Keterangan rentang perubahan tiap status di atas tabel Kondisi Terkini. */
+.legenda-monev {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+  gap: 0.4rem 1rem;
+  margin: 0.6rem 0 0.9rem;
+  font-size: 0.85rem;
+}
+.legenda-monev > div {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+/* Penanda jam data dan jam prediksi pada Kondisi Terkini, dibuat besar agar
+   admin langsung tahu data pukul berapa yang dibandingkan dengan prediksi
+   pukul berapa. */
+.waktu-monev {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin: 0.6rem 0 0.9rem;
+  padding: 0.8rem 1rem;
+  background: var(--biru-muda);
+  border: 1px solid #c5dced;
+  border-radius: 8px;
+}
+.waktu-monev > div:not(.panah) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.waktu-monev .label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--abu);
+}
+.waktu-monev .nilai {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--biru);
+  font-variant-numeric: tabular-nums;
+}
+.waktu-monev .tanggal {
+  font-size: 0.82rem;
+  color: var(--abu);
+}
+.waktu-monev .panah {
+  font-size: 1.5rem;
+  color: var(--abu);
+}
+/* Di layar sempit kedua jam tersusun bertumpuk, jadi panahnya menunjuk ke bawah. */
+@media (max-width: 600px) {
+  .waktu-monev {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+  .waktu-monev .panah {
+    transform: rotate(90deg);
+    line-height: 1;
+  }
+  .waktu-monev .nilai {
+    font-size: 1.45rem;
+  }
+}

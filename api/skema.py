@@ -121,6 +121,64 @@ class Ketelitian(BaseModel):
     jam_belum_tercakup: list[int] = []
 
 
+class KondisiMonev(BaseModel):
+    """Perubahan prediksi terbaru satu sel terhadap konsentrasi teramati jam dasarnya."""
+    kode_sel: str
+    nama: str
+    waktu_dasar: datetime
+    waktu_prediksi: datetime
+    so2_dasar: Optional[float] = None
+    nilai_so2: float
+    kategori: Optional[str] = None
+    perubahan: Optional[float] = None
+    status: Optional[str] = None
+    prediksi_basi: bool = False
+
+
+class EvaluasiMonev(BaseModel):
+    """Ketepatan peringatan pada satu jendela evaluasi."""
+    hari: int
+    dievaluasi: int
+    peringatan: int
+    terbukti: int
+    presisi: Optional[float] = None
+    kenaikan_aktual: int
+    tertangkap: Optional[float] = None
+    terlewat: int
+    # Batas jendela yang ditampilkan di kepala kolom: mulai = jam target pertama
+    # yang tercakup, akhir = jam target prediksi terbaru (acuan).
+    mulai: Optional[datetime] = None
+    akhir: Optional[datetime] = None
+    jam_awal: Optional[datetime] = None
+    jam_akhir: Optional[datetime] = None
+
+
+class PeringatanMonev(BaseModel):
+    """Satu prediksi yang memicu peringatan beserta hasil pembuktiannya."""
+    kode_sel: str
+    nama: str
+    waktu_dasar: datetime
+    waktu_prediksi: datetime
+    so2_dasar: float
+    nilai_so2: float
+    nilai_aktual: Optional[float] = None
+    perubahan_prediksi: float
+    perubahan_aktual: Optional[float] = None
+    terbukti: Optional[bool] = None
+
+
+class RingkasanMonev(BaseModel):
+    """Tanggapan halaman MonEv SO2 (Monitoring dan Evaluasi SO2)."""
+    ambang_peringatan: float
+    pita_stabil: float
+    hari_riwayat: int
+    acuan: Optional[datetime] = None
+    riwayat_mulai: Optional[datetime] = None
+    kondisi: list[KondisiMonev]
+    evaluasi: list[EvaluasiMonev]
+    riwayat: list[PeringatanMonev]
+
+
 class PermintaanMasuk(BaseModel):
     """Isian formulir login."""
     username: str

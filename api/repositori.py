@@ -1,4 +1,4 @@
-"""Tujuh repositori — lapisan Repositori.
+"""Delapan repositori — lapisan Repositori.
 
 Hanya repositori yang menyentuh SQL. Kelas layanan memanggil repositori, tidak
 pernah menulis kueri sendiri.
@@ -245,3 +245,122 @@ class SinkronisasiLokasiRepository:
                 JOIN   siklus_sinkronisasi s ON s.id_siklus = sl.id_siklus
                 ORDER  BY l.kode_sel, s.waktu_mulai DESC""")
             return {b["kode_sel"]: b for b in k.fetchall()}
+
+
+class MonevRepository:
+    """Akses baca tabel prediksi untuk Modul MonEv SO2 (Monitoring dan Evaluasi).
+
+    DASAR PERUBAHAN ADALAH POTRET SEZAMAN, BUKAN pengamatan.so2.
+
+    Perubahan dihitung terhadap nilai_aktual milik prediksi yang jam targetnya
+    sama dengan waktu_dasar (pp), dengan alasan yang sama seperti SQL_KETELITIAN
+    di basis_data.py: nilai_aktual diisi sekali lalu tidak berubah, sedangkan
+    pengamatan.so2 terus direvisi arsip Open-Meteo. Membandingkan nilai_aktual
+    (potret awal) terhadap pengamatan.so2 (sudah direvisi) mencampurkan revisi
+    arsip ke dalam "kenaikan". Pada 40 hari data production selisih keduanya
+    rata-rata 4,7 ug/m3, lebih dari separuh ambang peringatan.
+
+    Semua kueri hanya membaca; modul ini tidak menulis apa pun ke basis data.
+    """
+
+    def kondisi_terkini(self, s, versi_model=VERSI_MODEL):
+        """Prediksi terbaru tiap sel beserta konsentrasi teramati pada jam dasarnya.
+
+        Bila prediksi jam sebelumnya tidak ada (mis. siklus sebelumnya gagal),
+        dasar diambil dari pengamatan t-1 yang dipakai model saat itu. Pada saat
+        prediksi terbaru dibentuk, keduanya berasal dari tarikan yang sama.
+        LATERAL dipakai agar setiap sel memakai indeks (id_lokasi, waktu_prediksi);
+        lihat PengamatanRepository.terakhir_semua_sel untuk alasannya.
+        """
+        with s.cursor() as k:
+            k.execute("""
+                SELECT l.kode_sel, l.nama, l.urutan_tampil,
+                       p.waktu_dasar, p.waktu_prediksi, p.nilai_so2, p.kategori,
+                       COALESCE(pp.nilai_aktual, t1.so2)          AS so2_dasar
+                FROM   lokasi l
+                CROSS  JOIN LATERAL (
+                           SELECT x.*
+                           FROM   prediksi x
+                           WHERE  x.id_lokasi   = l.id_lokasi
+                             AND  x.versi_model = %(versi)s
+                           ORDER  BY x.waktu_prediksi DESC
+                           LIMIT  1) p
+                LEFT   JOIN prediksi pp
+                       ON pp.id_lokasi      = p.id_lokasi
+                      AND pp.waktu_prediksi = p.waktu_dasar
+                      AND pp.versi_model    = p.versi_model
+                LEFT   JOIN pengamatan t1 ON t1.id_pengamatan = p.id_pengamatan_t1
+                ORDER  BY l.urutan_tampil""", {"versi": versi_model})
+            return k.fetchall()
+
+    def jam_prediksi_terakhir(self, s, versi_model=VERSI_MODEL):
+        """Jam target prediksi terbaru yang tersimpan; acuan jendela evaluasi dan riwayat."""
+        with s.cursor() as k:
+            k.execute("""
+                SELECT max(waktu_prediksi) AS acuan
+                FROM   prediksi WHERE versi_model = %s""", (versi_model,))
+            return k.fetchone()["acuan"]
+
+    def evaluasi(self, s, sejak, ambang, versi_model=VERSI_MODEL):
+        """Jumlah peringatan, yang terbukti, dan kenaikan aktual sejak waktu tertentu.
+
+        Hanya prediksi yang sudah punya nilai aktual DAN punya potret sezaman
+        jam dasarnya yang dievaluasi, supaya peringatan dan kenaikan aktual
+        dinilai atas himpunan baris yang sama.
+        """
+        with s.cursor() as k:
+            k.execute("""
+                SELECT count(*)                                         AS dievaluasi,
+                       count(*) FILTER (
+                           WHERE p.nilai_so2 - pp.nilai_aktual >= %(ambang)s)
+                                                                        AS peringatan,
+                       count(*) FILTER (
+                           WHERE p.nilai_so2    - pp.nilai_aktual >= %(ambang)s
+                             AND p.nilai_aktual - pp.nilai_aktual >= %(ambang)s)
+                                                                        AS terbukti,
+                       count(*) FILTER (
+                           WHERE p.nilai_aktual - pp.nilai_aktual >= %(ambang)s)
+                                                                        AS kenaikan_aktual,
+                       min(p.waktu_prediksi)                            AS jam_awal,
+                       max(p.waktu_prediksi)                            AS jam_akhir
+                FROM   prediksi p
+                JOIN   prediksi pp
+                       ON pp.id_lokasi      = p.id_lokasi
+                      AND pp.waktu_prediksi = p.waktu_dasar
+                      AND pp.versi_model    = p.versi_model
+                WHERE  p.versi_model = %(versi)s
+                  AND  p.nilai_aktual  IS NOT NULL
+                  AND  pp.nilai_aktual IS NOT NULL
+                  AND  p.waktu_prediksi > %(sejak)s""",
+                      {"versi": versi_model, "sejak": sejak,
+                       "ambang": ambang})
+            return k.fetchone()
+
+    def riwayat_peringatan(self, s, sejak, ambang, versi_model=VERSI_MODEL):
+        """Daftar prediksi yang memicu peringatan sejak waktu tertentu, terbaru lebih dulu.
+
+        Prediksi yang nilai aktualnya belum tiba tetap ikut, dengan
+        perubahan_aktual bernilai NULL (menunggu).
+        """
+        with s.cursor() as k:
+            k.execute("""
+                SELECT l.kode_sel, l.nama, p.waktu_dasar, p.waktu_prediksi,
+                       pp.nilai_aktual                                  AS so2_dasar,
+                       p.nilai_so2, p.nilai_aktual,
+                       p.nilai_so2    - pp.nilai_aktual                 AS perubahan_prediksi,
+                       p.nilai_aktual - pp.nilai_aktual                 AS perubahan_aktual
+                FROM   prediksi p
+                JOIN   lokasi l ON l.id_lokasi = p.id_lokasi
+                JOIN   prediksi pp
+                       ON pp.id_lokasi      = p.id_lokasi
+                      AND pp.waktu_prediksi = p.waktu_dasar
+                      AND pp.versi_model    = p.versi_model
+                WHERE  p.versi_model = %(versi)s
+                  AND  pp.nilai_aktual IS NOT NULL
+                  AND  p.nilai_so2 - pp.nilai_aktual >= %(ambang)s
+                  AND  p.waktu_prediksi > %(sejak)s
+                ORDER  BY p.waktu_prediksi DESC, l.urutan_tampil
+                LIMIT  500""",
+                      {"versi": versi_model, "sejak": sejak,
+                       "ambang": ambang})
+            return k.fetchall()
